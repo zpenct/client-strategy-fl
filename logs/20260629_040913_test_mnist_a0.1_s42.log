@@ -1,0 +1,10 @@
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG] EXPERIMENT CONFIGURATION
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG]   strategy                 : random
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG]   dataset                  : mnist
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG]   alpha                    : 0.1
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG]   seed                     : 42
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG]   num_rounds               : 20
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-06-29 04:09:13] [INFO   ] [GLOBAL] [ROUND_05] Round 05/20 | Acc: 72.3400 | Gini: 0.1820 | σ: 0.0310 | Selected: [0,3,5,7,9] | Time: 47.3s

@@ -1,0 +1,44 @@
+experiment:
+  num_clients: 10
+  clients_per_round: 5
+  num_rounds: 20
+  local_epochs: 3
+  learning_rate: 0.01
+
+dataset:
+  mnist_target_accuracy: 85.0      # % — threshold for A2 metric
+  cifar10_target_accuracy: 70.0    # % — threshold for A2 metric
+
+performance_strategy:
+  latency_distribution: exponential
+  latency_scale: 100               # mean latency in ms
+
+fairness_strategy:
+  weight_formula: inverse_count    # weight_i = 1 / (count_i + 1)
+
+logging:
+  level: INFO
+  trace_mode: false                # set true for shape/tensor debug output
+  log_dir: logs/
+
+paths:
+  data_dir: data/raw/
+  partition_dir: data/partitions/
+  results_dir: results/
+
+grid:
+  strategies:
+    - random
+    - performance
+    - fairness
+  alphas:
+    - 0.1
+    - 0.5
+    - 1.0
+  seeds:
+    - 42
+    - 123
+    - 456
+  datasets:
+    - mnist
+    - cifar10

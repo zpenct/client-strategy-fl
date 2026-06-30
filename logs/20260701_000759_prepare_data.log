@@ -1,0 +1,18 @@
+[2026-07-01 00:07:59] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.1 | seed=42 | clients=10
+[2026-07-01 00:08:17] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha01_seed42
+[2026-07-01 00:08:17] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.1 | seed=123 | clients=10
+[2026-07-01 00:08:32] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha01_seed123
+[2026-07-01 00:08:32] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.1 | seed=456 | clients=10
+[2026-07-01 00:08:48] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha01_seed456
+[2026-07-01 00:08:48] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.5 | seed=42 | clients=10
+[2026-07-01 00:09:03] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha05_seed42
+[2026-07-01 00:09:03] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.5 | seed=123 | clients=10
+[2026-07-01 00:09:28] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha05_seed123
+[2026-07-01 00:09:28] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.5 | seed=456 | clients=10
+[2026-07-01 00:11:53] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha05_seed456
+[2026-07-01 00:12:11] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=1.0 | seed=42 | clients=10
+[2026-07-01 00:13:16] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha10_seed42
+[2026-07-01 00:13:16] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=1.0 | seed=123 | clients=10
+[2026-07-01 00:14:20] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha10_seed123
+[2026-07-01 00:14:20] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=1.0 | seed=456 | clients=10
+[2026-07-01 00:16:49] [INFO   ] [PARTITIONER] [DATA] Partition saved to /home/fayzul/codebase/fl_experiment/fl_experiment/data/partitions/cifar10/alpha10_seed456
