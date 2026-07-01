@@ -17,6 +17,7 @@ from flwr.common import FitIns, Parameters
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+from collections import defaultdict 
 
 
 class RandomStrategy(FedAvg):
@@ -45,6 +46,8 @@ class RandomStrategy(FedAvg):
         super().__init__(**kwargs)
         self.logger = logger
         self._round_num = 0
+        self.current_round = 0                                    # ← TAMBAH
+        self.participation_count: Dict[str, int] = defaultdict(int)  # ← TAMBAH
 
     def configure_fit(
         self,
@@ -85,6 +88,11 @@ class RandomStrategy(FedAvg):
             (raw_to_index.get(proxy.cid, proxy.cid) for proxy, _ in client_instructions),
             key=lambda x: int(x) if x.isdigit() else x,
         )
+
+         # ← TAMBAH 3 BARIS INI
+        self.current_round = server_round
+        for idx in selected_indices:
+            self.participation_count[idx] += 1
 
         if self.logger:
             self.logger.info(

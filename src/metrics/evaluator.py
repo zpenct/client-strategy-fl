@@ -379,7 +379,7 @@ def compute_all_metrics(
     a1 = compute_global_accuracy(model, test_loader, device)
 
     # A2: Rounds to target
-    accuracy_history = [r["global_accuracy"] for r in round_results]
+    accuracy_history = [r["global_accuracy"] for r in round_results if r["round"] > 0]
     a2 = compute_rounds_to_target(accuracy_history, target=target_acc)
 
     # B1, B2: Use per-client accuracies from the final round

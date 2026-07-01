@@ -21,6 +21,7 @@ from flwr.common import FitIns, Parameters
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+from collections import defaultdict
 
 
 def generate_client_latencies(
@@ -92,6 +93,8 @@ class PerformanceBasedStrategy(FedAvg):
         self.clients_per_round = clients_per_round
         self.logger = logger
         self._experiment_id = "UNKNOWN"
+        self.participation_count: Dict[str, int] = defaultdict(int)  # ← TAMBAH
+        self.current_round: int = 0 
 
         # Pre-sort once (latencies are fixed)
         self._sorted_cids: List[str] = sorted(
@@ -138,6 +141,10 @@ class PerformanceBasedStrategy(FedAvg):
             idx for idx in self._sorted_cids
             if idx in index_to_raw
         ][:self.clients_per_round]
+
+        self.current_round = server_round
+        for idx in selected_indices:
+            self.participation_count[idx] += 1
 
         client_instructions = [
             (available[index_to_raw[idx]], fit_ins) for idx in selected_indices

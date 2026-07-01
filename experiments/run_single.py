@@ -16,8 +16,8 @@ Usage:
 Author: FL Experiment System
 Date: 2026
 """
-
 from __future__ import annotations
+import ray
 import argparse
 import json
 import random
@@ -138,75 +138,62 @@ def build_strategy(
 
 # ─── Aggregation callbacks ───────────────────────────────────────────────────
 
-def make_evaluate_fn(model, test_loader, device, round_results, logger, experiment_id):
-    """
-    Return a server-side evaluate function for centralized evaluation.
+def make_callbacks(model, test_loader, device, strategy, logger, experiment_id):
+    round_data: Dict[int, Dict] = {}
+    participation_log: List[Dict] = []
+    _current_round = [0]
 
-    This is called by Flower after each round's aggregation with the
-    updated global parameters.
-
-    Returns:
-        Callable used as FedAvg's evaluate_fn argument.
-    """
-    def evaluate_fn(server_round: int, parameters, config):
-        # Load aggregated parameters into model
-        model.set_parameters(parameters.tensors if hasattr(parameters, 'tensors')
-                             else [p for p in parameters])
-        acc = compute_global_accuracy(model, test_loader, device)
-
-        # Store for later metric computation
-        round_results.append({
-            "round": server_round,
-            "global_accuracy": acc,
-            "per_client_accuracies": [],  # filled by fit_metrics_aggregation_fn
-        })
-
-        if logger:
-            extra = {"experiment_id": experiment_id,
-                     "component": f"ROUND_{server_round:02d}"}
-            logger.info(f"Global Accuracy: {acc:.4f}%", extra=extra)
-
-        return float(acc), {"global_accuracy": acc}
-
-    return evaluate_fn
-
-
-def make_fit_metrics_fn(round_results, participation_log, strategy, logger, experiment_id):
-    """
-    Return a function to aggregate fit metrics from all clients.
-
-    Flower calls this with a list of (num_samples, metrics_dict) from
-    all clients that participated in the round.
-    """
-    def fit_metrics_aggregation_fn(metrics_list: List[Tuple[int, Metrics]]) -> Metrics:
-        # Extract per-client accuracies
-        client_accs = []
-        client_losses = []
-        participation_this_round = []
-
-        for num_samples, m in metrics_list:
-            client_accs.append(m.get("train_accuracy", 0.0))
-            client_losses.append(m.get("train_loss", 0.0))
-
-        # Update the most recent round_results entry
-        if round_results:
-            round_results[-1]["per_client_accuracies"] = client_accs
-
-        # Track participation (strategy knows who was selected)
+    def fit_metrics_aggregation_fn(metrics_list):
         if hasattr(strategy, "participation_count"):
             participation_log.append(dict(strategy.participation_count))
         else:
             participation_log.append({})
-
-        # Aggregated metrics
         n_total = sum(n for n, _ in metrics_list)
-        avg_loss = sum(m.get("train_loss", 0) * n for n, m in metrics_list) / n_total if n_total else 0
-        avg_acc = sum(m.get("train_accuracy", 0) * n for n, m in metrics_list) / n_total if n_total else 0
-
+        avg_loss = (sum(m.get("train_loss", 0) * n for n, m in metrics_list) / n_total
+                    if n_total else 0.0)
+        avg_acc = (sum(m.get("train_accuracy", 0) * n for n, m in metrics_list) / n_total
+                   if n_total else 0.0)
         return {"avg_train_loss": avg_loss, "avg_train_accuracy": avg_acc}
 
-    return fit_metrics_aggregation_fn
+    def evaluate_fn(server_round, parameters, config):
+        from flwr.common import parameters_to_ndarrays, Parameters as FlwrParameters
+        if isinstance(parameters, FlwrParameters):
+            ndarrays = parameters_to_ndarrays(parameters)
+        else:
+            ndarrays = list(parameters)
+        model.set_parameters(ndarrays)
 
+        acc = compute_global_accuracy(model, test_loader, device)
+        _current_round[0] = server_round
+        round_data[server_round] = {
+            "round": server_round,
+            "global_accuracy": acc,
+            "per_client_accuracies": [],
+        }
+        if logger:
+            logger.info(
+                f"Global Accuracy: {acc:.4f}%",
+                extra={"experiment_id": experiment_id,
+                       "component": f"ROUND_{server_round:02d}"}
+            )
+        return float(acc), {"global_accuracy": acc}
+
+    def evaluate_metrics_aggregation_fn(metrics_list):
+        r = _current_round[0]
+        client_accs = [float(m.get("accuracy", 0.0)) for _, m in metrics_list]
+        if r in round_data:
+            round_data[r]["per_client_accuracies"] = client_accs
+        n_total = sum(n for n, _ in metrics_list)
+        avg_acc = (sum(m.get("accuracy", 0.0) * n for n, m in metrics_list) / n_total
+                   if n_total else 0.0)
+        return {"avg_eval_accuracy": avg_acc}
+
+    return (round_data, participation_log,
+            fit_metrics_aggregation_fn, evaluate_fn, evaluate_metrics_aggregation_fn)
+
+
+if ray.is_initialized():
+    ray.shutdown()
 
 # ─── Main runner ─────────────────────────────────────────────────────────────
 
@@ -297,20 +284,17 @@ def run_experiment(
     tracer.trace_model_params(global_model, logger)
 
     # ── Strategy ──────────────────────────────────────────────────────────
-    round_results: List[Dict] = []
-    participation_log: List[Dict] = []
-
     strategy = build_strategy(strategy_name, num_clients, clients_per_round, seed, logger)
     if hasattr(strategy, "set_experiment_id"):
         strategy.set_experiment_id(experiment_id)
 
-    # Attach server-side evaluation
-    strategy.evaluate_fn = make_evaluate_fn(
-        global_model, test_loader, device, round_results, logger, experiment_id
+    (round_data, participation_log,
+     fit_metrics_fn, evaluate_fn, evaluate_metrics_fn) = make_callbacks(
+        global_model, test_loader, device, strategy, logger, experiment_id
     )
-    strategy.fit_metrics_aggregation_fn = make_fit_metrics_fn(
-        round_results, participation_log, strategy, logger, experiment_id
-    )
+    strategy.evaluate_fn = evaluate_fn
+    strategy.fit_metrics_aggregation_fn = fit_metrics_fn
+    strategy.evaluate_metrics_aggregation_fn = evaluate_metrics_fn
 
     # ── Client factory ────────────────────────────────────────────────────
     client_fn = make_client_fn(
@@ -341,18 +325,11 @@ def run_experiment(
     t_total = time.time() - t_start
 
     # ── Metrics ───────────────────────────────────────────────────────────
-    # Get final participation counts
-    if hasattr(strategy, "participation_count"):
-        final_participation = dict(strategy.participation_count)
-    else:
-        # Reconstruct from participation log
-        final_participation = defaultdict(int)
-        for log_entry in participation_log:
-            for cid, cnt in log_entry.items():
-                final_participation[cid] = cnt
-        final_participation = dict(final_participation)
 
-    # Ensure all clients are represented
+    # ── Metrics ───────────────────────────────────────────────────────────
+    round_results = [round_data[r] for r in sorted(round_data.keys())]
+
+    final_participation = dict(strategy.participation_count)
     for i in range(num_clients):
         final_participation.setdefault(str(i), 0)
 
@@ -364,6 +341,7 @@ def run_experiment(
         device=device,
         dataset_name=dataset_name,
     )
+    
     final_metrics.update({
         "experiment_id": experiment_id,
         "strategy": strategy_name,
