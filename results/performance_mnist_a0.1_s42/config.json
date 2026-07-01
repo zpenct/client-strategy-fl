@@ -1,0 +1,14 @@
+{
+  "experiment_id": "performance_mnist_a0.1_s42",
+  "strategy": "performance",
+  "dataset": "mnist",
+  "alpha": 0.1,
+  "seed": 42,
+  "num_rounds": 20,
+  "num_clients": 10,
+  "clients_per_round": 5,
+  "local_epochs": 3,
+  "learning_rate": 0.01,
+  "device": "cpu",
+  "trace_mode": false
+}
