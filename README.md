@@ -1,11 +1,43 @@
-# FL Client Selection Experiment System
 
-
+# Analisis Perbandingan Strategi Seleksi Klien pada Federated Learning
 **Judul:** Analisis Perbandingan Strategi Seleksi Klien pada Federated Learning dengan Data Label-Skewed: Studi Simulasi menggunakan Framework Flower
 
----
 
-## Struktur Eksperimen
+## Daftar Isi
+
+- [Gambaran Umum](#gambaran-umum)
+- [Desain Eksperimen](#desain-eksperimen)
+- [Setup (Ubuntu / Linux / macOS)](#setup-ubuntu--linux--macos)
+- [Setup (Windows)](#setup-windows)
+- [Menjalankan Eksperimen](#menjalankan-eksperimen)
+- [Format Output](#format-output)
+- [Analisis Hasil (Notebook)](#analisis-hasil-notebook)
+- [Catatan Teknis](#catatan-teknis)
+
+## Gambaran Umum
+
+Repository ini berisi sistem simulasi Federated Learning (FL) untuk membandingkan tiga strategi seleksi klien pada kondisi data Non-IID (label-skewed) menggunakan framework [Flower (flwr)](https://flower.ai/).
+
+**Tiga strategi yang dibandingkan:**
+
+| Strategi | Deskripsi | Analogi |
+|---|---|---|
+| `random` | Seleksi klien sepenuhnya acak per round | FedAvg baseline |
+| `performance` | Pilih K klien dengan latency simulasi terendah | Oort / Power-of-Choice |
+| `fairness` | Bobot seleksi `1/(count+1)` — klien jarang dipilih mendapat prioritas | FairFedCS |
+
+**Non-IID disimulasikan** menggunakan distribusi Dirichlet dengan parameter α:
+
+| α | Tingkat Skew | Keterangan |
+|---|---|---|
+| 0.1 | Sangat ekstrem | Tiap klien hampir hanya punya 1-2 kelas |
+| 0.5 | Sedang | Label terdistribusi tidak merata |
+| 1.0 | Ringan | Mendekati IID |
+
+
+## Desain Eksperimen
+
+**Grid: 3 × 3 × 2 × 3 = 54 eksperimen**
 
 | Dimensi | Nilai |
 |---|---|
@@ -14,45 +46,138 @@
 | Dataset | MNIST, CIFAR-10 |
 | Seed | 42, 123, 456 |
 | **Total** | **54 eksperimen** |
-| Rounds per eksperimen | 20 |
-| Klien total | 10 (5 dipilih per round) |
+
+**Konfigurasi per eksperimen:**
+
+| Parameter | Nilai |
+|---|---|
+| Total klien | 10 |
+| Klien per round | 5 |
+| Communication rounds | 20 |
 | Local epochs | 3 |
 | Learning rate | 0.01 |
+| Target accuracy (MNIST) | 85% |
+| Target accuracy (CIFAR-10) | 70% |
+
+**Metrik evaluasi (7 metrik, 3 grup):**
+
+| Kode | Nama | Grup | Interpretasi |
+|---|---|---|---|
+| A1 | Global Accuracy | A — Performance | Akurasi model global di test set (%) |
+| A2 | Rounds to Target | A — Performance | Round pertama mencapai target accuracy |
+| B1 | Accuracy Variance (σ) | B — Fairness | Std dev akurasi antar klien (lebih rendah = lebih fair) |
+| B2 | Gini Coefficient | B — Fairness | Ketidakmerataan akurasi (0=fair, 1=unfair) |
+| B3 | Participation Fairness | B — Fairness | Std dev jumlah seleksi per klien (lebih rendah = lebih fair) |
+| C1 | Pareto Data | C — Trade-off | Data untuk analisis Pareto frontier |
+| C2 | Two-Way ANOVA | C — Trade-off | Signifikansi statistik perbedaan strategi × alpha |
+
+> **CIFAR-10:** Jika server resmi (`cs.toronto.edu`) tidak bisa diakses, sistem otomatis fallback ke Hugging Face Hub. Tidak perlu intervensi manual.
 
 ---
 
-## Setup
-
-### 1. Install dependencies
+## Setup (Ubuntu / Linux / macOS)
 
 ```bash
+
+# 2. Buat virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Set PYTHONPATH (wajib — ulangi setiap buka terminal baru)
+export PYTHONPATH="$PWD"
+
+# 5. Generate partisi data (jalankan SEKALI, ±5-10 menit)
+python experiments/prepare_data.py --datasets mnist cifar10
+
+# 6. Validasi setup
+python experiments/validate.py
 ```
 
-### 2. Pre-generate semua partisi data (jalankan sekali)
+**Tip:** Supaya tidak perlu set PYTHONPATH ulang setiap saat, tambahkan ke `~/.bashrc`:
+```bash
+echo 'export PYTHONPATH="$HOME/path/to/<repo>"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+---
+
+## Setup (Windows)
+
+### Opsi A — Git Bash (direkomendasikan)
+
+Git Bash disertakan bersama [Git for Windows](https://git-scm.com/download/win). Syntax-nya sama dengan Linux.
 
 ```bash
-PYTHONPATH="$PWD" python experiments/prepare_data.py
+
+# 2. Buat virtual environment
+python -m venv venv
+source venv/Scripts/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Set PYTHONPATH
+export PYTHONPATH="$PWD"
+
+# 5. Generate partisi data
+python experiments/prepare_data.py --datasets mnist cifar10
+
+# 6. Validasi setup
+python experiments/validate.py
 ```
 
-Output: 180 file `.pt` di `data/partitions/` + 18 `partition_info.json`.
+### Opsi B — PowerShell
 
-### 3. Smoke test (verifikasi pipeline, 1 round)
+```powershell
 
-```bash
-PYTHONPATH="$PWD" python experiments/run_single.py \
-  --strategy random --dataset mnist --alpha 0.1 --seed 42 \
-  --rounds 1 --trace
+# 2. Buat virtual environment
+python -m venv venv
+venv\Scripts\Activate.ps1
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Set PYTHONPATH
+$env:PYTHONPATH = $PWD
+
+# 5. Generate partisi data
+python experiments\prepare_data.py --datasets mnist cifar10
+
+# 6. Validasi setup
+python experiments\validate.py
 ```
+
+### VS Code (Windows)
+
+Buat file `.env` di root project:
+```
+PYTHONPATH=.
+```
+VS Code akan otomatis load ini saat membuka terminal terintegrasi.
 
 ---
 
 ## Menjalankan Eksperimen
 
-### Satu eksperimen
+> Pastikan virtual environment aktif dan `PYTHONPATH` sudah di-set sebelum menjalankan command apapun.
+
+### Validasi sebelum batch (sangat direkomendasikan)
 
 ```bash
-PYTHONPATH="$PWD" python experiments/run_single.py \
+# Validasi penuh termasuk pipeline smoke test (~15 menit)
+python experiments/validate.py
+
+# Validasi cepat tanpa pipeline (~30 detik)
+python experiments/validate.py --skip_pipeline
+```
+
+### Satu eksperimen spesifik
+
+```bash
+python experiments/run_single.py \
   --strategy random \
   --dataset mnist \
   --alpha 0.1 \
@@ -60,161 +185,75 @@ PYTHONPATH="$PWD" python experiments/run_single.py \
   --rounds 20
 ```
 
-### Semua 54 eksperimen (incremental — aman jika laptop mati)
+### Batch per dataset
 
 ```bash
-PYTHONPATH="$PWD" python experiments/run_batch.py --skip_existing
+# Hanya MNIST (27 eksperimen, ~8-10 jam)
+python experiments/run_batch.py --datasets mnist --skip_existing
+
+# Hanya CIFAR-10 (27 eksperimen, ~15-20 jam)
+python experiments/run_batch.py --datasets cifar10 --skip_existing
 ```
 
-### Dry run (lihat daftar tanpa eksekusi)
+### Batch semua 54 eksperimen
 
 ```bash
-PYTHONPATH="$PWD" python experiments/run_batch.py --dry_run
+python experiments/run_batch.py --skip_existing
 ```
 
-### Resume dari eksperimen ke-10
+### Resume jika terputus
 
 ```bash
-PYTHONPATH="$PWD" python experiments/run_batch.py --start_from 10 --skip_existing
+# Jalankan command yang sama — eksperimen yang sudah ada di-skip otomatis
+python experiments/run_batch.py --skip_existing
+
+# Atau mulai dari nomor tertentu
+python experiments/run_batch.py --skip_existing --start_from 15
+```
+
+### Dry run
+
+```bash
+python experiments/run_batch.py --dry_run
 ```
 
 ---
 
-## Strategi Seleksi Klien
-
-### Random (`random`)
-Seleksi seragam acak per round. Baseline. Menggunakan default Flower FedAvg.
-
-### Performance-Based (`performance`)
-Pilih K klien dengan latency simulasi terendah (exponential distribution, seed-fixed). Analogous to Oort / Power-of-Choice.
-
-### Fairness-Aware (`fairness`)
-Probabilistic selection dengan bobot `1/(count+1)` — klien yang jarang dipilih mendapat probabilitas lebih tinggi. Based on Huang et al. (2021).
-
----
-
-## Metrik Evaluasi
-
-| Kode | Nama | Grup |
-|---|---|---|
-| A1 | Global Accuracy | A — Global Performance |
-| A2 | Rounds to Target | A — Global Performance |
-| B1 | Accuracy Variance (σ) | B — Per-Client Fairness |
-| B2 | Gini Coefficient | B — Per-Client Fairness |
-| B3 | Participation Fairness | B — Per-Client Fairness |
-| C1 | Pareto Data | C — Trade-off |
-| C2 | Two-Way ANOVA | C — Trade-off |
-
-Target accuracy: MNIST ≥ 85%, CIFAR-10 ≥ 70%.
-
----
-
-## Struktur Output
+## Format Output
 
 ```
-results/
-└── random_mnist_a0.1_s42/
-    ├── config.json              # Konfigurasi eksperimen
-    ├── metrics_per_round.json   # Metrik tiap round
-    ├── final_metrics.json       # 7 metrik akhir
-    └── participation_log.json   # Riwayat pemilihan klien
+results/random_mnist_a0.1_s42/
+├── config.json              # Parameter eksperimen
+├── metrics_per_round.json   # Metrik tiap round
+├── final_metrics.json       # 7 metrik akhir (A1–B3)
+└── participation_log.json   # Riwayat pemilihan klien
 ```
 
-### Format `final_metrics.json`
+**Contoh `final_metrics.json`:**
 
 ```json
 {
-  "A1_global_accuracy": 94.23,
-  "A2_rounds_to_target": 8,
-  "B1_accuracy_variance": 0.0312,
-  "B2_gini_coefficient": 0.1823,
-  "B3_participation_fairness": 0.0410,
+  "A1_global_accuracy": 98.45,
+  "A2_rounds_to_target": 4,
+  "B1_accuracy_variance": 0.012597,
+  "B2_gini_coefficient": 0.007324,
+  "B3_participation_fairness": 2.898275,
   "target_reached": true,
+  "accuracy_history": [74.1, 81.25, 79.84, 95.23],
+  "per_client_final": [0.981, 0.976, 0.983],
   "strategy": "random",
   "dataset": "mnist",
   "alpha": 0.1,
-  "seed": 42
+  "seed": 42,
+  "total_time_seconds": 1054.3
 }
 ```
 
 ---
 
-## Struktur Folder
-
-```
-fl_experiment/
-├── configs/
-│   └── experiment_config.yaml
-├── data/
-│   ├── raw/                    # Auto-download MNIST & CIFAR-10
-│   └── partitions/             # Hasil partisi Dirichlet
-│       ├── mnist/
-│       │   └── alpha01_seed42/
-│       │       ├── client_0.pt ... client_9.pt
-│       │       └── partition_info.json
-│       └── cifar10/
-├── experiments/
-│   ├── prepare_data.py         # Pre-generate partisi
-│   ├── run_single.py           # 1 eksperimen
-│   └── run_batch.py            # 54 eksperimen
-├── src/
-│   ├── client/fl_client.py
-│   ├── data/
-│   │   ├── loader.py
-│   │   └── partitioner.py
-│   ├── metrics/evaluator.py
-│   ├── models/
-│   │   ├── cifar_cnn.py
-│   │   └── mnist_cnn.py
-│   ├── strategies/
-│   │   ├── fairness_strategy.py
-│   │   ├── performance_strategy.py
-│   │   └── random_strategy.py
-│   └── utils/
-│       ├── logger.py
-│       └── tracer.py
-├── logs/
-├── notebooks/
-│   └── analysis.ipynb          # (buat manual untuk analisis akhir)
-├── results/
-├── requirements.txt
-└── README.md
-```
-
----
-
-## Reproducibility
-
-- Partisi data dibangkitkan **sekali** dengan seed fixed dan disimpan ke disk.
-- Model diinisialisasi dengan seed yang sama sebelum tiap run (`set_all_seeds()`).
-- Latency untuk performance strategy dibangkitkan dengan seed yang sama di semua eksperimen.
-- `config.json` disimpan di setiap folder hasil.
-
----
-
----
-
-## Kompatibilitas Versi Flower
-
-Sistem ini **sudah diuji dan terbukti jalan end-to-end** pada Flower versi lama (1.13.0) maupun terbaru (1.32.0), karena `requirements.txt` tidak mengunci versi spesifik (`flwr[simulation]>=1.13.0`).
-
-Catatan teknis penting: pada Flower versi terbaru, `ClientProxy.cid` yang dilihat oleh strategi server (`client_manager.all()`) berupa node-ID internal (mirip UUID), bukan lagi `"0","1","2"...` sederhana. Karena `PerformanceBasedStrategy` dan `FairnessAwareStrategy` butuh ID numerik stabil untuk mapping latency dan partisi data, kedua strategi ini sudah dimodifikasi untuk membangun **mapping index stabil** (`"0".."9"`) berdasarkan urutan sortir cid setiap round, alih-alih bergantung langsung pada nilai cid mentah dari Flower. Ini membuat sistem tetap benar terlepas dari skema cid internal Flower di versi manapun.
-
-Selain itu, `make_client_fn()` di `src/client/fl_client.py` memanggil `.to_client()` pada `NumPyClient` agar kompatibel dengan flwr ≥1.13 yang mewajibkan instance `Client`, bukan `NumPyClient` langsung.
-
-Jika `pip install -r requirements.txt` masih gagal karena masalah versi `grpcio`/`cryptography` di Python kamu, install Flower tanpa pin ketat:
+## Analisis Hasil (Notebook)
 
 ```bash
-pip install "flwr[simulation]"
+pip install jupyter 
+jupyter notebook notebooks/analysis.ipynb
 ```
-
-`[simulation]` wajib disertakan — tanpa ini, `fl.simulation.start_simulation()` akan gagal dengan error `Unable to import module 'ray'`.
-
----
-
-
-
-- **Laptop sering mati?** Gunakan `--skip_existing` — eksperimen yang sudah selesai tidak akan diulang.
-- **Debug mode?** Tambahkan `--trace` untuk melihat shape tensor dan distribusi data.
-- **Cek hasil cepat?** Buka `results/{experiment_id}/final_metrics.json`.
-- **PYTHONPATH** harus di-set ke root project agar absolute imports bekerja.
