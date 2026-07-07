@@ -1,0 +1,14 @@
+{
+  "experiment_id": "performance_cifar10_a0.5_s42",
+  "strategy": "performance",
+  "dataset": "cifar10",
+  "alpha": 0.5,
+  "seed": 42,
+  "num_rounds": 20,
+  "num_clients": 10,
+  "clients_per_round": 5,
+  "local_epochs": 3,
+  "learning_rate": 0.01,
+  "device": "cpu",
+  "trace_mode": false
+}

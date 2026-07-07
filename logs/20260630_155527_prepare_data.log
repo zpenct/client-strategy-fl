@@ -1,5 +1,0 @@
-[2026-06-30 15:55:27] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.1 | seed=42 | clients=10
-[2026-06-30 16:00:00] [ERROR  ] [PREPARE_DATA] [PARTITIONER] Partition failed: cifar10 | alpha=0.1 | seed=42 | <urlopen error [Errno 110] Connection timed out>
-[2026-06-30 16:00:00] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.1 | seed=123 | clients=10
-[2026-06-30 16:02:15] [ERROR  ] [PREPARE_DATA] [PARTITIONER] Partition failed: cifar10 | alpha=0.1 | seed=123 | <urlopen error [Errno 110] Connection timed out>
-[2026-06-30 16:02:15] [INFO   ] [PARTITIONER] [DATA] Generating partition: cifar10 | alpha=0.1 | seed=456 | clients=10

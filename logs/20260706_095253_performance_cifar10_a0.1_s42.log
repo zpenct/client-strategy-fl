@@ -1,0 +1,178 @@
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG] EXPERIMENT CONFIGURATION
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   experiment_id            : performance_cifar10_a0.1_s42
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   strategy                 : performance
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   dataset                  : cifar10
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   alpha                    : 0.1
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   seed                     : 42
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   num_rounds               : 20
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   num_clients              : 10
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   clients_per_round        : 5
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   local_epochs             : 3
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   learning_rate            : 0.01
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   device                   : cpu
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG]   trace_mode               : False
+[2026-07-06 09:52:53] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-06 09:52:53] [INFO   ] [performance_cifar10_a0.1_s42] [SIMULATION] Starting simulation: 20 rounds | 10 clients | 5/round
+[2026-07-06 09:53:02] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_00] Global Accuracy: 10.0900%
+[2026-07-06 09:53:02] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 01 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:53:26] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_01] Global Accuracy: 21.2700%
+[2026-07-06 09:53:32] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 02 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:53:55] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_02] Global Accuracy: 26.5600%
+[2026-07-06 09:53:58] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 03 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:54:20] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_03] Global Accuracy: 28.8200%
+[2026-07-06 09:54:24] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 04 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:54:46] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_04] Global Accuracy: 29.8200%
+[2026-07-06 09:54:49] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 05 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:55:11] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_05] Global Accuracy: 32.1100%
+[2026-07-06 09:55:15] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 06 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:55:37] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_06] Global Accuracy: 36.3100%
+[2026-07-06 09:55:41] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 07 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:56:02] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_07] Global Accuracy: 35.9200%
+[2026-07-06 09:56:06] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 08 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:56:28] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_08] Global Accuracy: 37.9800%
+[2026-07-06 09:56:32] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 09 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:56:53] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_09] Global Accuracy: 38.7700%
+[2026-07-06 09:56:57] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 10 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:57:18] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_10] Global Accuracy: 41.3100%
+[2026-07-06 09:57:22] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 11 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:57:44] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_11] Global Accuracy: 39.7100%
+[2026-07-06 09:57:47] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 12 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:58:09] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_12] Global Accuracy: 42.2500%
+[2026-07-06 09:58:12] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 13 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:58:33] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_13] Global Accuracy: 42.0400%
+[2026-07-06 09:58:37] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 14 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:58:59] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_14] Global Accuracy: 43.6800%
+[2026-07-06 09:59:03] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 15 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:59:24] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_15] Global Accuracy: 43.3500%
+[2026-07-06 09:59:28] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 16 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 09:59:49] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_16] Global Accuracy: 44.4300%
+[2026-07-06 09:59:53] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 17 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 10:00:14] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_17] Global Accuracy: 47.3600%
+[2026-07-06 10:00:18] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 18 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 10:00:40] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_18] Global Accuracy: 45.0300%
+[2026-07-06 10:00:43] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 19 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 10:01:05] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_19] Global Accuracy: 45.8600%
+[2026-07-06 10:01:09] [INFO   ] [performance_cifar10_a0.1_s42] [STRATEGY] [PERFORMANCE] Round 20 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   8 | Latency:    7.93 ms
+  Rank 02 | Client   4 | Latency:    8.64 ms
+  Rank 03 | Client   3 | Latency:   27.98 ms
+  Rank 04 | Client   9 | Latency:  104.66 ms
+  Rank 05 | Client   6 | Latency:  141.00 ms
+  [NOT SELECTED]: ['5', '1', '2', '0', '7']
+[2026-07-06 10:01:31] [INFO   ] [performance_cifar10_a0.1_s42] [ROUND_20] Global Accuracy: 47.2800%

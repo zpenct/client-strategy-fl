@@ -1,0 +1,58 @@
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG] EXPERIMENT CONFIGURATION
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   experiment_id            : random_mnist_a0.1_s123
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   strategy                 : random
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   dataset                  : mnist
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   alpha                    : 0.1
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   seed                     : 123
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   num_rounds               : 20
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   num_clients              : 10
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   clients_per_round        : 5
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   local_epochs             : 3
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   learning_rate            : 0.01
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   device                   : cpu
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG]   trace_mode               : False
+[2026-07-03 14:00:47] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 14:00:47] [INFO   ] [random_mnist_a0.1_s123] [SIMULATION] Starting simulation: 20 rounds | 10 clients | 5/round
+[2026-07-03 14:00:55] [INFO   ] [random_mnist_a0.1_s123] [ROUND_00] Global Accuracy: 13.1700%
+[2026-07-03 14:00:55] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 01 | Selected 5 clients: ['1', '5', '6', '8', '9']
+[2026-07-03 14:01:09] [INFO   ] [random_mnist_a0.1_s123] [ROUND_01] Global Accuracy: 62.5300%
+[2026-07-03 14:01:13] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 02 | Selected 5 clients: ['0', '2', '3', '4', '6']
+[2026-07-03 14:01:30] [INFO   ] [random_mnist_a0.1_s123] [ROUND_02] Global Accuracy: 72.0500%
+[2026-07-03 14:01:33] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 03 | Selected 5 clients: ['0', '1', '4', '5', '9']
+[2026-07-03 14:01:39] [INFO   ] [random_mnist_a0.1_s123] [ROUND_03] Global Accuracy: 77.4400%
+[2026-07-03 14:01:41] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 04 | Selected 5 clients: ['1', '4', '6', '7', '8']
+[2026-07-03 14:01:54] [INFO   ] [random_mnist_a0.1_s123] [ROUND_04] Global Accuracy: 92.9600%
+[2026-07-03 14:01:56] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 05 | Selected 5 clients: ['0', '2', '7', '8', '9']
+[2026-07-03 14:02:08] [INFO   ] [random_mnist_a0.1_s123] [ROUND_05] Global Accuracy: 95.8000%
+[2026-07-03 14:02:11] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 06 | Selected 5 clients: ['2', '5', '6', '8', '9']
+[2026-07-03 14:02:23] [INFO   ] [random_mnist_a0.1_s123] [ROUND_06] Global Accuracy: 94.0600%
+[2026-07-03 14:02:26] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 07 | Selected 5 clients: ['0', '1', '2', '7', '9']
+[2026-07-03 14:02:33] [INFO   ] [random_mnist_a0.1_s123] [ROUND_07] Global Accuracy: 97.0800%
+[2026-07-03 14:02:36] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 08 | Selected 5 clients: ['0', '2', '4', '7', '8']
+[2026-07-03 14:02:47] [INFO   ] [random_mnist_a0.1_s123] [ROUND_08] Global Accuracy: 96.4700%
+[2026-07-03 14:02:50] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 09 | Selected 5 clients: ['0', '2', '3', '7', '9']
+[2026-07-03 14:03:07] [INFO   ] [random_mnist_a0.1_s123] [ROUND_09] Global Accuracy: 96.8300%
+[2026-07-03 14:03:09] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 10 | Selected 5 clients: ['0', '1', '2', '4', '8']
+[2026-07-03 14:03:21] [INFO   ] [random_mnist_a0.1_s123] [ROUND_10] Global Accuracy: 96.9900%
+[2026-07-03 14:03:23] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 11 | Selected 5 clients: ['0', '1', '2', '3', '4']
+[2026-07-03 14:03:40] [INFO   ] [random_mnist_a0.1_s123] [ROUND_11] Global Accuracy: 94.6300%
+[2026-07-03 14:03:42] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 12 | Selected 5 clients: ['0', '1', '2', '5', '6']
+[2026-07-03 14:03:54] [INFO   ] [random_mnist_a0.1_s123] [ROUND_12] Global Accuracy: 97.4200%
+[2026-07-03 14:03:57] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 13 | Selected 5 clients: ['1', '3', '5', '6', '8']
+[2026-07-03 14:04:15] [INFO   ] [random_mnist_a0.1_s123] [ROUND_13] Global Accuracy: 96.5700%
+[2026-07-03 14:04:17] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 14 | Selected 5 clients: ['0', '2', '3', '7', '8']
+[2026-07-03 14:04:34] [INFO   ] [random_mnist_a0.1_s123] [ROUND_14] Global Accuracy: 97.8600%
+[2026-07-03 14:04:37] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 15 | Selected 5 clients: ['3', '4', '7', '8', '9']
+[2026-07-03 14:04:54] [INFO   ] [random_mnist_a0.1_s123] [ROUND_15] Global Accuracy: 98.5600%
+[2026-07-03 14:04:57] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 16 | Selected 5 clients: ['2', '4', '6', '8', '9']
+[2026-07-03 14:05:09] [INFO   ] [random_mnist_a0.1_s123] [ROUND_16] Global Accuracy: 97.6900%
+[2026-07-03 14:05:12] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 17 | Selected 5 clients: ['3', '4', '5', '7', '8']
+[2026-07-03 14:05:29] [INFO   ] [random_mnist_a0.1_s123] [ROUND_17] Global Accuracy: 98.4700%
+[2026-07-03 14:05:32] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 18 | Selected 5 clients: ['0', '1', '2', '3', '8']
+[2026-07-03 14:05:49] [INFO   ] [random_mnist_a0.1_s123] [ROUND_18] Global Accuracy: 97.4800%
+[2026-07-03 14:05:51] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 19 | Selected 5 clients: ['1', '3', '4', '6', '8']
+[2026-07-03 14:06:09] [INFO   ] [random_mnist_a0.1_s123] [ROUND_19] Global Accuracy: 97.6500%
+[2026-07-03 14:06:11] [INFO   ] [random_mnist_a0.1_s123] [STRATEGY] [RANDOM] Round 20 | Selected 5 clients: ['0', '1', '6', '7', '8']
+[2026-07-03 14:06:24] [INFO   ] [random_mnist_a0.1_s123] [ROUND_20] Global Accuracy: 98.7500%

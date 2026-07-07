@@ -1,0 +1,178 @@
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG] EXPERIMENT CONFIGURATION
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   experiment_id            : performance_mnist_a0.5_s456
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   strategy                 : performance
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   dataset                  : mnist
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   alpha                    : 0.5
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   seed                     : 456
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   num_rounds               : 20
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   num_clients              : 10
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   clients_per_round        : 5
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   local_epochs             : 3
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   learning_rate            : 0.01
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   device                   : cpu
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG]   trace_mode               : False
+[2026-07-03 16:22:42] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 16:22:42] [INFO   ] [performance_mnist_a0.5_s456] [SIMULATION] Starting simulation: 20 rounds | 10 clients | 5/round
+[2026-07-03 16:22:51] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_00] Global Accuracy: 11.7900%
+[2026-07-03 16:22:51] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 01 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:23:05] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_01] Global Accuracy: 93.6900%
+[2026-07-03 16:23:08] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 02 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:23:20] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_02] Global Accuracy: 97.7800%
+[2026-07-03 16:23:22] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 03 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:23:34] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_03] Global Accuracy: 98.5000%
+[2026-07-03 16:23:35] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 04 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:23:47] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_04] Global Accuracy: 98.6400%
+[2026-07-03 16:23:49] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 05 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:24:01] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_05] Global Accuracy: 98.7800%
+[2026-07-03 16:24:03] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 06 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:24:15] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_06] Global Accuracy: 98.8900%
+[2026-07-03 16:24:17] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 07 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:24:29] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_07] Global Accuracy: 98.9400%
+[2026-07-03 16:24:31] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 08 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:24:43] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_08] Global Accuracy: 98.9700%
+[2026-07-03 16:24:45] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 09 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:24:57] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_09] Global Accuracy: 99.0100%
+[2026-07-03 16:24:58] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 10 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:25:10] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_10] Global Accuracy: 98.9800%
+[2026-07-03 16:25:12] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 11 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:25:24] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_11] Global Accuracy: 99.0400%
+[2026-07-03 16:25:26] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 12 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:25:38] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_12] Global Accuracy: 99.0400%
+[2026-07-03 16:25:40] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 13 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:25:52] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_13] Global Accuracy: 99.0000%
+[2026-07-03 16:25:54] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 14 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:26:05] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_14] Global Accuracy: 98.9700%
+[2026-07-03 16:26:07] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 15 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:26:19] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_15] Global Accuracy: 99.0200%
+[2026-07-03 16:26:21] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 16 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:26:33] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_16] Global Accuracy: 99.0200%
+[2026-07-03 16:26:34] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 17 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:26:46] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_17] Global Accuracy: 99.0100%
+[2026-07-03 16:26:48] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 18 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:27:00] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_18] Global Accuracy: 99.0400%
+[2026-07-03 16:27:02] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 19 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:27:13] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_19] Global Accuracy: 99.0100%
+[2026-07-03 16:27:15] [INFO   ] [performance_mnist_a0.5_s456] [STRATEGY] [PERFORMANCE] Round 20 | Selected 5 clients (by latency ascending)
+  Rank 01 | Client   5 | Latency:    4.94 ms
+  Rank 02 | Client   6 | Latency:   23.32 ms
+  Rank 03 | Client   2 | Latency:   23.66 ms
+  Rank 04 | Client   1 | Latency:   42.04 ms
+  Rank 05 | Client   0 | Latency:   49.13 ms
+  [NOT SELECTED]: ['3', '9', '8', '4', '7']
+[2026-07-03 16:27:27] [INFO   ] [performance_mnist_a0.5_s456] [ROUND_20] Global Accuracy: 99.0800%

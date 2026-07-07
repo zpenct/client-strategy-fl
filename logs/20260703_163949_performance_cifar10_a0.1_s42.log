@@ -1,0 +1,17 @@
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG] EXPERIMENT CONFIGURATION
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   experiment_id            : performance_cifar10_a0.1_s42
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   strategy                 : performance
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   dataset                  : cifar10
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   alpha                    : 0.1
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   seed                     : 42
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   num_rounds               : 20
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   num_clients              : 10
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   clients_per_round        : 5
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   local_epochs             : 3
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   learning_rate            : 0.01
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   device                   : cpu
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG]   trace_mode               : False
+[2026-07-03 16:39:49] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 16:39:49] [INFO   ] [performance_cifar10_a0.1_s42] [SIMULATION] Starting simulation: 20 rounds | 10 clients | 5/round

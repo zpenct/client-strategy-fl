@@ -1,0 +1,58 @@
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG] EXPERIMENT CONFIGURATION
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   experiment_id            : random_cifar10_a0.1_s42
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   strategy                 : random
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   dataset                  : cifar10
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   alpha                    : 0.1
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   seed                     : 42
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   num_rounds               : 20
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   num_clients              : 10
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   clients_per_round        : 5
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   local_epochs             : 3
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   learning_rate            : 0.01
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   device                   : cpu
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG]   trace_mode               : False
+[2026-07-03 14:38:21] [INFO   ] [GLOBAL] [CONFIG] ============================================================
+[2026-07-03 14:38:22] [INFO   ] [random_cifar10_a0.1_s42] [SIMULATION] Starting simulation: 20 rounds | 10 clients | 5/round
+[2026-07-03 14:38:31] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_00] Global Accuracy: 10.6600%
+[2026-07-03 14:38:31] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 01 | Selected 5 clients: ['4', '5', '6', '7', '9']
+[2026-07-03 14:39:00] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_01] Global Accuracy: 18.8400%
+[2026-07-03 14:39:06] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 02 | Selected 5 clients: ['1', '4', '5', '6', '8']
+[2026-07-03 14:39:31] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_02] Global Accuracy: 34.9200%
+[2026-07-03 14:39:35] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 03 | Selected 5 clients: ['0', '1', '4', '6', '8']
+[2026-07-03 14:39:58] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_03] Global Accuracy: 37.8300%
+[2026-07-03 14:40:02] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 04 | Selected 5 clients: ['1', '2', '3', '5', '6']
+[2026-07-03 14:40:23] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_04] Global Accuracy: 30.9900%
+[2026-07-03 14:40:27] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 05 | Selected 5 clients: ['1', '2', '3', '4', '7']
+[2026-07-03 14:40:51] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_05] Global Accuracy: 46.1600%
+[2026-07-03 14:40:55] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 06 | Selected 5 clients: ['0', '1', '2', '8', '9']
+[2026-07-03 14:41:19] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_06] Global Accuracy: 38.1500%
+[2026-07-03 14:41:23] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 07 | Selected 5 clients: ['2', '3', '4', '5', '6']
+[2026-07-03 14:41:48] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_07] Global Accuracy: 45.2900%
+[2026-07-03 14:41:52] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 08 | Selected 5 clients: ['0', '1', '2', '3', '8']
+[2026-07-03 14:42:07] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_08] Global Accuracy: 46.0300%
+[2026-07-03 14:42:11] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 09 | Selected 5 clients: ['1', '3', '4', '5', '6']
+[2026-07-03 14:42:37] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_09] Global Accuracy: 48.5300%
+[2026-07-03 14:42:41] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 10 | Selected 5 clients: ['1', '2', '3', '4', '6']
+[2026-07-03 14:43:04] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_10] Global Accuracy: 48.0900%
+[2026-07-03 14:43:08] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 11 | Selected 5 clients: ['1', '3', '6', '7', '9']
+[2026-07-03 14:43:30] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_11] Global Accuracy: 46.0100%
+[2026-07-03 14:43:34] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 12 | Selected 5 clients: ['4', '5', '6', '7', '8']
+[2026-07-03 14:43:59] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_12] Global Accuracy: 48.7900%
+[2026-07-03 14:44:03] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 13 | Selected 5 clients: ['1', '3', '5', '6', '9']
+[2026-07-03 14:44:27] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_13] Global Accuracy: 51.6600%
+[2026-07-03 14:44:32] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 14 | Selected 5 clients: ['0', '2', '6', '7', '9']
+[2026-07-03 14:44:54] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_14] Global Accuracy: 45.8100%
+[2026-07-03 14:44:59] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 15 | Selected 5 clients: ['0', '4', '5', '6', '7']
+[2026-07-03 14:45:24] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_15] Global Accuracy: 58.2600%
+[2026-07-03 14:45:28] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 16 | Selected 5 clients: ['2', '5', '6', '8', '9']
+[2026-07-03 14:45:52] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_16] Global Accuracy: 53.8900%
+[2026-07-03 14:45:55] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 17 | Selected 5 clients: ['0', '4', '5', '7', '9']
+[2026-07-03 14:46:22] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_17] Global Accuracy: 59.5200%
+[2026-07-03 14:46:26] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 18 | Selected 5 clients: ['0', '3', '4', '5', '8']
+[2026-07-03 14:46:53] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_18] Global Accuracy: 57.9800%
+[2026-07-03 14:46:57] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 19 | Selected 5 clients: ['1', '2', '4', '5', '7']
+[2026-07-03 14:47:22] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_19] Global Accuracy: 58.5700%
+[2026-07-03 14:47:26] [INFO   ] [random_cifar10_a0.1_s42] [STRATEGY] [RANDOM] Round 20 | Selected 5 clients: ['1', '2', '3', '4', '9']
+[2026-07-03 14:47:51] [INFO   ] [random_cifar10_a0.1_s42] [ROUND_20] Global Accuracy: 55.9800%

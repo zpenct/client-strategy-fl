@@ -306,6 +306,20 @@ def run_two_way_anova(
                 return float("nan"), float("nan")
             return float(row["F"].values[0]), float(row["p-unc"].values[0])
 
+        # def _extract(source):
+        #     row = aov[aov["Source"] == source]
+        #     if row.empty:
+        #         return float("nan"), float("nan")
+            
+        #     # Cari kolom p-value dengan nama yang benar
+        #     p_cols = [col for col in row.columns if 'p' in col.lower()]
+        #     if not p_cols:
+        #         print(f"Warning: tidak ada kolom p-value. Columns: {row.columns.tolist()}")
+        #         return float("nan"), float("nan")
+            
+        #     p_col = p_cols[0]  # Ambil kolom pertama yang mengandung 'p'
+        #     return float(row["F"].values[0]), float(row[p_col].values[0])
+
         F_strat, p_strat = _extract("strategy")
         F_alpha, p_alpha = _extract("alpha")
         F_inter, p_inter = _extract("strategy * alpha")
