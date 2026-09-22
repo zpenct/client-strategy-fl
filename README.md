@@ -20,11 +20,11 @@ Repository ini berisi sistem simulasi Federated Learning (FL) untuk membandingka
 
 **Tiga strategi yang dibandingkan:**
 
-| Strategi | Deskripsi | Analogi |
+| Strategi | Deskripsi | Paper acuan |
 |---|---|---|
-| `random` | Seleksi klien sepenuhnya acak per round | FedAvg baseline |
-| `performance` | Pilih K klien dengan latency simulasi terendah | Oort / Power-of-Choice |
-| `fairness` | Bobot seleksi `1/(count+1)` — klien jarang dipilih mendapat prioritas | FairFedCS |
+| `random` | Seleksi klien sepenuhnya acak per round | FedAvg baseline (McMahan dkk., 2017) |
+| `performance` | Statistical utility berbasis loss lokal (`U(i)=|Bi|*sqrt(mean(Loss(k)^2))`) + bandit exploration-exploitation (staleness bonus, robustness clipping, cutoff-pool proportional sampling). Komponen system-utility/pacer dari paper asli di-drop karena riset ini simulasi 1 mesin tanpa heterogenitas device nyata. | Oort (Lai dkk., 2021) |
+| `fairness` | Beta Reputation System (dari exact Shapley Value kontribusi klien tiap round) + virtual fairness queue (Lyapunov optimization), dikombinasikan jadi Client Suitability Index `CSI_i = sigma*r_i + Q_i` untuk pilih top-m klien | FairFedCS (Shi dkk., 2023) |
 
 **Non-IID disimulasikan** menggunakan distribusi Dirichlet dengan parameter α:
 
@@ -188,12 +188,14 @@ python experiments/run_single.py \
 ### Batch per dataset
 
 ```bash
-# Hanya MNIST (27 eksperimen, ~8-10 jam)
+# Hanya MNIST (27 eksperimen)
 python experiments/run_batch.py --datasets mnist --skip_existing
 
-# Hanya CIFAR-10 (27 eksperimen, ~15-20 jam)
+# Hanya CIFAR-10 (27 eksperimen)
 python experiments/run_batch.py --datasets cifar10 --skip_existing
 ```
+
+> **Catatan runtime — strategi `fairness` (FairFedCS) jauh lebih lambat.** Strategi ini menghitung exact Shapley Value tiap round (32 evaluasi subset koalisi untuk m=5 klien), menambah ±45-55 menit per eksperimen di atas baseline `random`/`performance`. Dari smoke test 1-round: random≈67s, performance≈93s, fairness≈228s (1 round saja). Untuk 20 round penuh, eksperimen `fairness` bisa memakan >1 jam masing-masing — pertimbangkan menjalankan batch semalaman atau per-strategi terpisah (`--strategies fairness`) agar progres tetap terpantau.
 
 ### Batch semua 54 eksperimen
 
@@ -250,6 +252,23 @@ results/random_mnist_a0.1_s42/
 ```
 
 ---
+
+## Analisis Lintas-Eksperimen (C1 Pareto + C2 ANOVA)
+
+Setelah batch selesai (atau sebagian selesai), jalankan:
+
+```bash
+python experiments/analyze_results.py
+```
+
+Script ini membaca semua `results/*/final_metrics.json`, lalu menghasilkan di `results/analysis/`:
+
+| File | Isi |
+|---|---|
+| `summary_table.csv` | Mean±std tiap metrik per (dataset, strategi, alpha), diagregasi lintas 3 seed |
+| `pareto_data.csv` | Titik Pareto-optimal (C1) per dataset berdasarkan trade-off akurasi vs Gini |
+| `anova_results.json` | Two-way ANOVA (C2): signifikansi strategi × alpha × interaksi, per dataset per metrik |
+| `fairness_threshold_summary.csv` | Ringkasan strategi mana yang Pareto-optimal di tiap α — jawaban langsung untuk Rumusan Masalah 3 |
 
 ## Analisis Hasil (Notebook)
 

@@ -1,71 +1,140 @@
 """
 Fairness-aware client selection strategy for federated learning.
 
-Implements inverse-count weighted probabilistic selection:
-  fairness_weight[i] = 1 / (participation_count[i] + 1)
+Faithful implementation of FairFedCS from:
 
-Clients that have been selected less often get higher probability
-of being selected, promoting equitable participation.
+    Shi, Y., Liu, Z., Shi, Z., & Yu, H. (2023).
+    Fairness-Aware Client Selection for Federated Learning.
+    ICME. https://arxiv.org/pdf/2307.10738
 
-Based on: Huang et al. (2021) fairness-aware FL client selection concepts.
+FairFedCS jointly considers a Beta-Reputation-System estimate of each
+client's contribution quality and a Lyapunov-optimization virtual queue
+tracking accumulated selection unfairness, combined into a per-round
+Client Suitability Index (CSI) used to pick the top-m clients.
+
+Contribution assessment (client reputation) is grounded in the exact
+Shapley Value of each participating client's update, computed over the
+2^m subsets of this round's m-client coalition. The original paper uses
+GTG-Shapley to approximate this at the scale of thousands of clients; at
+our scale (m=5 clients selected per round) exact enumeration is feasible
+and strictly more faithful to the paper's Eq. 2 definition, so it is used
+here instead of an approximation.
 
 Author: FL Experiment System
 Date: 2026
 """
 
 from __future__ import annotations
+import itertools
 import logging
+import math
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import flwr as fl
-from flwr.common import FitIns, Parameters
+from flwr.common import (
+    FitIns,
+    FitRes,
+    Parameters,
+    NDArrays,
+    parameters_to_ndarrays,
+    ndarrays_to_parameters,
+)
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+from flwr.server.strategy.aggregate import aggregate as fedavg_aggregate
+
+
+EvalFn = Callable[[NDArrays], float]
 
 
 class FairnessAwareStrategy(FedAvg):
     """
-    FedAvg variant with fairness-corrected probabilistic client selection.
+    FairFedCS: Fairness-Aware Federated Client Selection.
 
-    Maintains a participation counter per client. Each round, selection
-    probability is inversely proportional to how often each client has
-    been selected. This prevents high-capability clients from dominating
-    training at the expense of under-represented clients.
+    Maintains, for every client i in the population:
+      - A Beta Reputation r_i = (a_i+1)/(a_i+b_i+2), updated each round a
+        client participates based on the sign of its Shapley Value
+        contribution to global accuracy.
+      - A virtual fairness queue Q_i, which grows whenever a client is
+        NOT selected (proportional to its current reputation) and shrinks
+        by 1 whenever it is selected — bounding long-run selection
+        unfairness via Lyapunov optimization.
 
-    Formula:
-        weight_i = 1 / (count_i + 1)
-        prob_i   = weight_i / sum(weights)
+    Each round, clients are ranked by the Client Suitability Index
+    CSI_i = sigma * r_i + Q_i, and the top-m are selected.
 
     Args:
-        clients_per_round: Number of clients to select per round (K).
-        seed: Seed for numpy random choice (reproducibility).
-        logger: Optional logger for structured per-round output.
+        num_clients: Total number of clients N in the population.
+        clients_per_round: Number of clients to select per round (m).
+        sigma: Trade-off control parameter between reputation and the
+            fairness queue in the CSI (paper default 0.6).
+        eval_fn: Callable(ndarrays) -> accuracy (0-100 scale) used to
+            evaluate arbitrary aggregated-parameter subsets on the
+            centralized test set for Shapley Value computation. Must use
+            a scratch model instance separate from the main global model
+            so subset evaluations never clobber the round-committed model.
+        seed: RNG seed (kept for interface parity with other strategies).
+        logger: Optional logger for structured output.
         **kwargs: Forwarded to FedAvg.
-
-    Attributes:
-        participation_count: Dict[str, int] tracking cumulative
-            selection count per client_id.
     """
 
     def __init__(
         self,
+        num_clients: int,
         clients_per_round: int = 5,
+        sigma: float = 0.6,
+        eval_fn: Optional[EvalFn] = None,
         seed: int = 42,
         logger: logging.Logger = None,
         **kwargs,
     ):
+        if eval_fn is None:
+            raise ValueError(
+                "FairnessAwareStrategy requires eval_fn (ndarrays -> accuracy) "
+                "for Shapley Value based reputation updates."
+            )
         super().__init__(**kwargs)
+
+        self.num_clients = num_clients
         self.clients_per_round = clients_per_round
-        self.seed = seed
+        self.sigma = sigma
+        self.eval_fn = eval_fn
         self.logger = logger
         self._experiment_id = "UNKNOWN"
 
-        # Core fairness state
+        # Beta Reputation System state: Beta(1,1) prior -> r_i = 0.5.
+        self.reputation_a: Dict[str, int] = {str(i): 1 for i in range(num_clients)}
+        self.reputation_b: Dict[str, int] = {str(i): 1 for i in range(num_clients)}
+
+        # Virtual fairness queue.
+        self.queue_Q: Dict[str, float] = {str(i): 0.0 for i in range(num_clients)}
+
         self.participation_count: Dict[str, int] = defaultdict(int)
+
+        # Cache of the global parameters sent out this round -- used as the
+        # empty-coalition Shapley baseline f(w_empty).
+        self._current_global_ndarrays: Optional[NDArrays] = None
+        self._raw_to_index: Dict[str, str] = {}
+        self._last_shapley: Dict[str, float] = {}
+
         self._rng = np.random.default_rng(seed)
+
+    # ─────────────────────────────────────────────────────────────
+    # A. Reputation (Beta Reputation System, Eq. 1)
+    # ─────────────────────────────────────────────────────────────
+
+    def reputation_of(self, client_id: str) -> float:
+        """r_i = E[Beta(a_i+1, b_i+1)] = (a_i+1)/(a_i+b_i+2)."""
+        a = self.reputation_a.get(client_id, 1)
+        b = self.reputation_b.get(client_id, 1)
+        return (a + 1) / (a + b + 2)
+
+    # ─────────────────────────────────────────────────────────────
+    # B. configure_fit: Client Suitability Index + virtual queue update
+    # ─────────────────────────────────────────────────────────────
 
     def configure_fit(
         self,
@@ -74,15 +143,8 @@ class FairnessAwareStrategy(FedAvg):
         client_manager: ClientManager,
     ) -> List[Tuple[ClientProxy, FitIns]]:
         """
-        Select K clients with probability inversely proportional to
-        their historical participation count.
-
-        Note: In some Flower versions, ClientProxy.cid is an internal
-        node identifier (UUID-like) that is NOT guaranteed to be the
-        same string across rounds in a way useful for fairness bookkeeping
-        tied to "0","1","2"... Like PerformanceBasedStrategy, we map
-        available clients to a STABLE index based on sorted cid order,
-        and track participation using that stable index.
+        Select the top-m clients by Client Suitability Index (Eq. 13),
+        then update every client's virtual fairness queue (Eq. 3-4).
 
         Args:
             server_round: Current communication round.
@@ -92,32 +154,42 @@ class FairnessAwareStrategy(FedAvg):
         Returns:
             List of (ClientProxy, FitIns) for selected clients.
         """
-        config = {}
-        fit_ins = FitIns(parameters, config)
+        fit_ins = FitIns(parameters, {})
 
         available: Dict[str, ClientProxy] = client_manager.all()
-        sorted_raw_cids = sorted(available.keys())
+        available_cids = list(available.keys())
+        if not available_cids:
+            return []
 
-        # Map stable index -> raw cid, and keep reverse for instructions
-        index_to_raw = {str(i): raw_cid for i, raw_cid in enumerate(sorted_raw_cids)}
-        stable_indices = list(index_to_raw.keys())
+        sorted_raw = sorted(available_cids)
+        raw_to_index = {raw: str(i) for i, raw in enumerate(sorted_raw)}
+        index_to_raw = {v: k for k, v in raw_to_index.items()}
+        all_indices = list(raw_to_index.values())
+        self._raw_to_index = raw_to_index
 
-        k = min(self.clients_per_round, len(stable_indices))
+        N = len(all_indices)
+        m = min(self.clients_per_round, N)
+        eps = m / N  # discount factor eps = m/N (paper §3.2)
 
-        # Compute weights: inversely proportional to participation count
-        weights = np.array([
-            1.0 / (self.participation_count[idx] + 1)
-            for idx in stable_indices
-        ])
-        probs = weights / weights.sum()
+        # 1-2. Reputation and Client Suitability Index.
+        reputations = {idx: self.reputation_of(idx) for idx in all_indices}
+        csi = {idx: self.sigma * reputations[idx] + self.queue_Q.get(idx, 0.0)
+               for idx in all_indices}
 
-        # Sample without replacement
-        chosen_positions = self._rng.choice(
-            len(stable_indices), size=k, replace=False, p=probs
-        )
-        selected_indices = [stable_indices[i] for i in chosen_positions]
+        # 3. Select top-m by CSI (ties broken by client index for determinism).
+        ranked = sorted(all_indices, key=lambda idx: (-csi[idx], int(idx)))
+        selected_indices = ranked[:m]
+        selected_set = set(selected_indices)
 
-        # Update participation counts (keyed by stable index)
+        # 4. Update virtual queue for ALL clients (Eq. 3-4).
+        for idx in all_indices:
+            x_i = 1.0 if idx in selected_set else 0.0
+            c_i = eps * reputations[idx] * (1.0 - x_i)
+            self.queue_Q[idx] = max(0.0, self.queue_Q.get(idx, 0.0) + c_i - x_i)
+
+        # 5. Cache global params for this round's Shapley baseline f(w_empty).
+        self._current_global_ndarrays = parameters_to_ndarrays(parameters)
+
         for idx in selected_indices:
             self.participation_count[idx] += 1
 
@@ -125,99 +197,144 @@ class FairnessAwareStrategy(FedAvg):
             (available[index_to_raw[idx]], fit_ins) for idx in selected_indices
         ]
 
-        # Log selection table
-        self._log_selection(server_round, stable_indices, weights, probs, selected_indices)
+        self._log_selection(server_round, selected_indices, all_indices, reputations, csi)
 
         return client_instructions
+
+    # ─────────────────────────────────────────────────────────────
+    # C. aggregate_fit: FedAvg aggregation + Shapley-based reputation update
+    # ─────────────────────────────────────────────────────────────
+
+    def aggregate_fit(
+        self,
+        server_round: int,
+        results: List[Tuple[ClientProxy, FitRes]],
+        failures,
+    ) -> Tuple[Optional[Parameters], Dict]:
+        """
+        Aggregate client updates with standard FedAvg weighted averaging,
+        then compute the exact Shapley Value of every participating
+        client's contribution and update its reputation accordingly.
+        """
+        if not results:
+            return None, {}
+        if not self.accept_failures and failures:
+            return None, {}
+
+        coalition: List[Tuple[str, NDArrays, int]] = []
+        for client_proxy, fit_res in results:
+            cid_index = self._raw_to_index.get(client_proxy.cid, client_proxy.cid)
+            ndarrays = parameters_to_ndarrays(fit_res.parameters)
+            coalition.append((cid_index, ndarrays, fit_res.num_examples))
+
+        weights_results = [(nd, n) for _, nd, n in coalition]
+        aggregated_ndarrays = fedavg_aggregate(weights_results)
+        parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
+
+        if self._current_global_ndarrays is not None:
+            self._update_reputation_via_shapley(coalition)
+            self._log_shapley(server_round)
+
+        metrics_aggregated: Dict = {}
+        if self.fit_metrics_aggregation_fn:
+            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
+
+        return parameters_aggregated, metrics_aggregated
+
+    def _update_reputation_via_shapley(
+        self, coalition: List[Tuple[str, NDArrays, int]]
+    ) -> None:
+        """
+        Compute the exact Shapley Value phi_i for every client i in this
+        round's coalition (Eq. 2), then update Beta reputation counts by
+        the sign of phi_i: a_i += 1 if phi_i >= 0, else b_i += 1.
+        """
+        m = len(coalition)
+        if m == 0:
+            return
+
+        client_ids = [c[0] for c in coalition]
+        client_data = {cid: (nd, n) for cid, nd, n in coalition}
+
+        # f(S) cache over all 2^m subsets of the coalition.
+        f_cache: Dict[frozenset, float] = {
+            frozenset(): self.eval_fn(self._current_global_ndarrays)
+        }
+        for r in range(1, m + 1):
+            for subset in itertools.combinations(client_ids, r):
+                weights_results = [client_data[cid] for cid in subset]
+                agg_ndarrays = fedavg_aggregate(weights_results)
+                f_cache[frozenset(subset)] = self.eval_fn(agg_ndarrays)
+
+        # phi_i = (1/m) * sum_{S subseteq others} [f(S u {i}) - f(S)] / C(m-1, |S|)
+        shapley: Dict[str, float] = {}
+        for i in client_ids:
+            others = [c for c in client_ids if c != i]
+            total = 0.0
+            for r in range(0, m):
+                weight = 1.0 / math.comb(m - 1, r)
+                for subset in itertools.combinations(others, r):
+                    S = frozenset(subset)
+                    S_with_i = S | {i}
+                    marginal = f_cache[S_with_i] - f_cache[S]
+                    total += marginal * weight
+            shapley[i] = total / m
+
+        for cid, phi in shapley.items():
+            if phi >= 0:
+                self.reputation_a[cid] = self.reputation_a.get(cid, 1) + 1
+            else:
+                self.reputation_b[cid] = self.reputation_b.get(cid, 1) + 1
+
+        self._last_shapley = shapley
+
+    # ─────────────────────────────────────────────────────────────
+    # D. Logging
+    # ─────────────────────────────────────────────────────────────
 
     def _log_selection(
         self,
         server_round: int,
-        all_indices: List[str],
-        weights: np.ndarray,
-        probs: np.ndarray,
         selected_indices: List[str],
+        all_indices: List[str],
+        reputations: Dict[str, float],
+        csi: Dict[str, float],
     ):
-        """
-        Print a formatted table of participation counts, weights, and probs.
-
-        Args:
-            server_round: Current round number.
-            all_indices: All available client stable indices ("0","1",...).
-            weights: Raw fairness weights (before normalization).
-            probs: Normalized selection probabilities.
-            selected_indices: Stable indices chosen this round.
-        """
         selected_set = set(selected_indices)
-        header = (
-            f"[FAIRNESS] Round {server_round:02d} | "
-            f"Selected {len(selected_indices)} clients via weighted sampling"
-        )
-        divider = "  " + "-" * 55
-        col_header = f"  {'Client':>6} | {'Count':>5} | {'Weight':>7} | {'Prob':>6} | {'Picked':>6}"
-
-        rows = [header, divider, col_header, divider]
-        for idx, w, p in zip(all_indices, weights, probs):
-            picked = "  ✓" if idx in selected_set else ""
-            count = self.participation_count[idx]  # already updated for selected
-            display_count = count - (1 if idx in selected_set else 0)  # before this round
+        header = f"[FAIRNESS/FairFedCS] Round {server_round:02d} | sigma={self.sigma}"
+        rows = [header]
+        for idx in sorted(all_indices, key=int):
+            picked = "✓" if idx in selected_set else "✗"
             rows.append(
-                f"  {idx:>6} | {display_count:>5} | {w:>7.4f} | {p:>6.4f} |{picked}"
+                f"  Client {idx:>2} | r_i: {reputations[idx]:.4f} | "
+                f"Q_i: {self.queue_Q[idx]:7.4f} | CSI: {csi[idx]:.4f} | "
+                f"Selected: {picked}"
             )
-        rows.append(divider)
-        rows.append(f"  → Selected: {sorted(selected_indices, key=int)}")
-
+        rows.append(f"→ Selected clients: {sorted(selected_indices, key=int)}")
         full_msg = "\n".join(rows)
+
         extra = {"experiment_id": self._experiment_id, "component": "STRATEGY"}
         if self.logger:
             self.logger.info(full_msg, extra=extra)
         else:
             print(full_msg)
 
-    def get_participation_stats(self) -> Dict:
-        """
-        Return final participation statistics across all rounds.
+    def _log_shapley(self, server_round: int):
+        if not self._last_shapley:
+            return
+        parts = ", ".join(
+            f"{cid}:{phi:+.3f}" for cid, phi in sorted(self._last_shapley.items(), key=lambda x: int(x[0]))
+        )
+        msg = f"[FAIRNESS/FairFedCS] Round {server_round:02d} | Shapley phi_i: {parts}"
+        extra = {"experiment_id": self._experiment_id, "component": "SHAPLEY"}
+        if self.logger:
+            self.logger.info(msg, extra=extra)
 
-        Returns:
-            Dict with keys:
-                counts (Dict[str, int]): Per-client selection counts.
-                std (float): Standard deviation of counts.
-                min_count (int): Least-selected client's count.
-                max_count (int): Most-selected client's count.
-                gini (float): Gini coefficient of participation counts.
-
-        Example:
-            >>> stats = strategy.get_participation_stats()
-            >>> stats["std"]
-            0.943
-        """
-        counts = dict(self.participation_count)
-        if not counts:
-            return {"counts": {}, "std": 0.0, "min_count": 0,
-                    "max_count": 0, "gini": 0.0}
-
-        values = np.array(list(counts.values()), dtype=float)
-        gini = _gini(values)
-
-        return {
-            "counts": counts,
-            "std": float(np.std(values)),
-            "min_count": int(values.min()),
-            "max_count": int(values.max()),
-            "gini": gini,
-        }
+    # ─────────────────────────────────────────────────────────────
+    # E. Server Integration Helpers
+    # ─────────────────────────────────────────────────────────────
 
     def set_experiment_id(self, experiment_id: str):
         """Inject experiment ID for structured logging."""
         self._experiment_id = experiment_id
-
-
-def _gini(values: np.ndarray) -> float:
-    """Compute the Gini coefficient of an array of non-negative values."""
-    if values.sum() == 0:
-        return 0.0
-    values = np.sort(values)
-    n = len(values)
-    cumsum = np.cumsum(values)
-    return float((2 * np.sum((np.arange(1, n + 1)) * values) - (n + 1) * cumsum[-1])
-                 / (n * cumsum[-1]))

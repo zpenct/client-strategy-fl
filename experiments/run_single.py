@@ -46,8 +46,9 @@ from src.models.mnist_cnn import SimpleCNN
 from src.models.cifar_cnn import CIFARCNN
 from src.client.fl_client import make_client_fn
 from src.strategies.random_strategy import RandomStrategy
-from src.strategies.performance_strategy import PerformanceBasedStrategy, generate_client_latencies
+from src.strategies.performance_strategy import PerformanceBasedStrategy
 from src.strategies.fairness_strategy import FairnessAwareStrategy
+from src.data.partitioner import load_partition_info
 from src.metrics.evaluator import compute_all_metrics, compute_global_accuracy
 
 
@@ -81,6 +82,8 @@ def build_strategy(
     clients_per_round: int,
     seed: int,
     logger,
+    client_num_samples: Dict[str, int] = None,
+    eval_fn_for_fairness=None,
 ) -> FedAvg:
     """
     Instantiate and return the requested Flower strategy.
@@ -91,6 +94,12 @@ def build_strategy(
         clients_per_round: Number to select per round.
         seed: Seed for strategy internals.
         logger: Logger instance.
+        client_num_samples: Dict mapping client_id → num_samples (for Oort
+            statistical utility U(i) = |Bi| * loss_rms).
+        eval_fn_for_fairness: Callable(ndarrays) -> accuracy, required for
+            "fairness" (FairFedCS's Shapley Value contribution assessment).
+            Must evaluate on a scratch model separate from the main global
+            model (see make_shapley_eval_fn()).
 
     Returns:
         Configured FedAvg subclass.
@@ -108,22 +117,25 @@ def build_strategy(
         strategy = RandomStrategy(logger=logger, **common_kwargs)
 
     elif strategy_name == "performance":
-        latencies = generate_client_latencies(
-            num_clients=num_clients,
-            seed=seed,
-            distribution="exponential",
-            scale=100.0,
-        )
         strategy = PerformanceBasedStrategy(
-            client_latencies=latencies,
+            client_num_samples=client_num_samples or {},
             clients_per_round=clients_per_round,
+            seed=seed,
             logger=logger,
             **common_kwargs,
         )
 
     elif strategy_name == "fairness":
+        if eval_fn_for_fairness is None:
+            raise ValueError(
+                "eval_fn_for_fairness is required to build the 'fairness' "
+                "(FairFedCS) strategy — see make_shapley_eval_fn()."
+            )
         strategy = FairnessAwareStrategy(
+            num_clients=num_clients,
             clients_per_round=clients_per_round,
+            sigma=0.6,
+            eval_fn=eval_fn_for_fairness,
             seed=seed,
             logger=logger,
             **common_kwargs,
@@ -136,9 +148,50 @@ def build_strategy(
     return strategy
 
 
+def make_shapley_eval_fn(dataset_name: str, test_loader, device):
+    """
+    Build an eval_fn(ndarrays) -> accuracy closure for FairFedCS's Shapley
+    Value computation, backed by a dedicated scratch model instance.
+
+    A separate model instance is essential: FairFedCS evaluates many
+    candidate parameter subsets per round (2^m for a coalition of size m),
+    and these evaluations must never overwrite the actual round-committed
+    global model used for the experiment's real accuracy tracking.
+
+    Args:
+        dataset_name: "mnist" or "cifar10".
+        test_loader: Centralized test DataLoader.
+        device: Torch device.
+
+    Returns:
+        Callable[[NDArrays], float] returning accuracy on a 0-100 scale.
+    """
+    scratch_model = build_model(dataset_name).to(device)
+
+    def eval_fn(ndarrays):
+        scratch_model.set_parameters(ndarrays)
+        return compute_global_accuracy(scratch_model, test_loader, device)
+
+    return eval_fn
+
+
 # ─── Aggregation callbacks ───────────────────────────────────────────────────
 
 def make_callbacks(model, test_loader, device, strategy, logger, experiment_id):
+    """
+    Build the aggregation/evaluation callbacks Flower calls each round.
+
+    Note: Flower's generic `fit_metrics_aggregation_fn` and
+    `evaluate_metrics_aggregation_fn` callbacks only receive
+    (num_examples, metrics) tuples — they carry NO client identity. Any
+    per-client bookkeeping that needs real client identity (e.g. Oort's
+    loss_rms statistical utility, FairFedCS's Shapley reputation update)
+    is therefore handled inside the strategy's own aggregate_fit()
+    override (see performance_strategy.py / fairness_strategy.py), which
+    receives the full (ClientProxy, FitRes) pairs. These callbacks only
+    compute order-independent aggregate statistics (means, std, Gini),
+    which don't require client identity.
+    """
     round_data: Dict[int, Dict] = {}
     participation_log: List[Dict] = []
     _current_round = [0]
@@ -169,7 +222,9 @@ def make_callbacks(model, test_loader, device, strategy, logger, experiment_id):
             "round": server_round,
             "global_accuracy": acc,
             "per_client_accuracies": [],
+            "per_client_eval": [],
         }
+
         if logger:
             logger.info(
                 f"Global Accuracy: {acc:.4f}%",
@@ -181,8 +236,16 @@ def make_callbacks(model, test_loader, device, strategy, logger, experiment_id):
     def evaluate_metrics_aggregation_fn(metrics_list):
         r = _current_round[0]
         client_accs = [float(m.get("accuracy", 0.0)) for _, m in metrics_list]
+        # No client identity available here (see docstring above) — kept as
+        # an order-parallel list, not a (mis)labeled id -> value mapping.
+        per_client_eval = [
+            {"accuracy": float(m.get("accuracy", 0.0)), "loss": float(m.get("loss", 0.0))}
+            for _, m in metrics_list
+        ]
+
         if r in round_data:
             round_data[r]["per_client_accuracies"] = client_accs
+            round_data[r]["per_client_eval"] = per_client_eval
         n_total = sum(n for n, _ in metrics_list)
         avg_acc = (sum(m.get("accuracy", 0.0) * n for n, m in metrics_list) / n_total
                    if n_total else 0.0)
@@ -283,8 +346,31 @@ def run_experiment(
     global_model = build_model(dataset_name).to(device)
     tracer.trace_model_params(global_model, logger)
 
+    # ── Load client metadata (for Oort utility computation) ────────────────
+    client_num_samples: Dict[str, int] = {}
+    try:
+        partition_info = load_partition_info(dataset_name, alpha, seed)
+        for info in partition_info:
+            client_num_samples[str(info["client_id"])] = info["total_samples"]
+    except FileNotFoundError:
+        if logger:
+            logger.warning("partition_info.json not found, using uniform sample counts")
+        # Fallback: uniform distribution
+        total_samples = 60000 if dataset_name == "mnist" else 50000
+        per_client = total_samples // num_clients
+        for i in range(num_clients):
+            client_num_samples[str(i)] = per_client
+
     # ── Strategy ──────────────────────────────────────────────────────────
-    strategy = build_strategy(strategy_name, num_clients, clients_per_round, seed, logger)
+    eval_fn_for_fairness = None
+    if strategy_name == "fairness":
+        eval_fn_for_fairness = make_shapley_eval_fn(dataset_name, test_loader, device)
+
+    strategy = build_strategy(
+        strategy_name, num_clients, clients_per_round, seed, logger,
+        client_num_samples=client_num_samples,
+        eval_fn_for_fairness=eval_fn_for_fairness,
+    )
     if hasattr(strategy, "set_experiment_id"):
         strategy.set_experiment_id(experiment_id)
 

@@ -10,6 +10,7 @@ Date: 2026
 
 from __future__ import annotations
 import logging
+import math
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -170,8 +171,12 @@ class FLClient(fl.client.NumPyClient):
             momentum=0.9,
         )
         criterion = nn.CrossEntropyLoss()
+        # Per-sample (no reduction) loss, needed to compute Oort's statistical
+        # utility U(i) = |Bi| * sqrt(mean(Loss(k)^2)) over individual samples.
+        criterion_per_sample = nn.CrossEntropyLoss(reduction="none")
 
         total_loss = 0.0
+        total_sq_loss = 0.0
         total_correct = 0
         total_samples = 0
 
@@ -186,12 +191,17 @@ class FLClient(fl.client.NumPyClient):
                 loss.backward()
                 optimizer.step()
 
+                with torch.no_grad():
+                    per_sample_loss = criterion_per_sample(outputs, batch_labels)
+                    total_sq_loss += (per_sample_loss ** 2).sum().item()
+
                 total_loss += loss.item() * len(batch_labels)
                 preds = outputs.argmax(dim=1)
                 total_correct += (preds == batch_labels).sum().item()
                 total_samples += len(batch_labels)
 
         avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
+        loss_rms = math.sqrt(total_sq_loss / total_samples) if total_samples > 0 else 0.0
         accuracy = total_correct / total_samples if total_samples > 0 else 0.0
 
         # TRACER: log a sample tensor from last batch
@@ -204,6 +214,7 @@ class FLClient(fl.client.NumPyClient):
         metrics: Dict[str, Scalar] = {
             "train_loss": float(avg_loss),
             "train_accuracy": float(accuracy),
+            "loss_rms": float(loss_rms),
         }
 
         return self.model.get_parameters(), self.n_train, metrics
@@ -250,7 +261,7 @@ class FLClient(fl.client.NumPyClient):
         avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
         accuracy = total_correct / total_samples if total_samples > 0 else 0.0
 
-        return float(avg_loss), total_samples, {"accuracy": float(accuracy)}
+        return float(avg_loss), total_samples, {"accuracy": float(accuracy), "loss": float(avg_loss)}
 
 
 def make_client_fn(

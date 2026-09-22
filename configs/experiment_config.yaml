@@ -9,12 +9,25 @@ dataset:
   mnist_target_accuracy: 85.0      # % — threshold for A2 metric
   cifar10_target_accuracy: 70.0    # % — threshold for A2 metric
 
-performance_strategy:
-  latency_distribution: exponential
-  latency_scale: 100               # mean latency in ms
+# NOTE: these two sections are documentation of the defaults hardcoded in
+# src/strategies/*.py — they are not currently loaded from this file at
+# runtime (run_single.py / run_batch.py configure strategies via CLI args
+# and in-code defaults). Kept here so the config stays a faithful reference
+# alongside the paper each strategy implements.
 
-fairness_strategy:
-  weight_formula: inverse_count    # weight_i = 1 / (count_i + 1)
+performance_strategy:               # Oort (statistical utility + bandit)
+  exploration_factor_init: 0.9      # initial epsilon
+  exploration_decay: 0.98           # multiplicative decay per round while eps > floor
+  exploration_floor: 0.2            # epsilon stops decaying below this
+  loss_history_window: 10           # rolling window size for loss_rms
+  utility_clip_percentile: 95       # outlier-robustness utility cap
+  cutoff_confidence: 0.95           # c: exploitation candidate-pool sizing
+
+fairness_strategy:                  # FairFedCS (reputation + virtual queue)
+  sigma: 0.6                        # CSI trade-off: sigma*r_i + Q_i
+  reputation_prior_a: 1             # Beta(1,1) prior -> r_i = 0.5
+  reputation_prior_b: 1
+  shapley_method: exact             # exact enumeration of 2^m coalition subsets
 
 logging:
   level: INFO

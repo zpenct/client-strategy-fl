@@ -94,7 +94,7 @@ def check_imports():
         ("src.models.mnist_cnn", "from src.models.mnist_cnn import SimpleCNN"),
         ("src.models.cifar_cnn", "from src.models.cifar_cnn import CIFARCNN"),
         ("src.strategies.random_strategy", "from src.strategies.random_strategy import RandomStrategy"),
-        ("src.strategies.performance_strategy", "from src.strategies.performance_strategy import PerformanceBasedStrategy, generate_client_latencies"),
+        ("src.strategies.performance_strategy", "from src.strategies.performance_strategy import PerformanceBasedStrategy"),
         ("src.strategies.fairness_strategy", "from src.strategies.fairness_strategy import FairnessAwareStrategy"),
         ("src.client.fl_client", "from src.client.fl_client import FLClient, make_client_fn"),
         ("src.metrics.evaluator", "from src.metrics.evaluator import compute_all_metrics, compute_gini_coefficient"),
