@@ -300,25 +300,23 @@ def run_two_way_anova(
             between=["strategy", "alpha"],
             detailed=True,
         )
+
+        # pingouin's p-value column name has changed across versions
+        # ("p-unc" in older releases, "p_unc" from pingouin>=0.6). Resolve
+        # it dynamically instead of hardcoding one spelling.
+        p_col_candidates = [c for c in aov.columns if c.lower().replace("-", "_") == "p_unc"]
+        if not p_col_candidates:
+            raise KeyError(
+                f"Could not find a p-value column in pingouin's ANOVA output. "
+                f"Columns present: {aov.columns.tolist()}"
+            )
+        p_col = p_col_candidates[0]
+
         def _extract(source):
             row = aov[aov["Source"] == source]
             if row.empty:
                 return float("nan"), float("nan")
-            return float(row["F"].values[0]), float(row["p-unc"].values[0])
-
-        # def _extract(source):
-        #     row = aov[aov["Source"] == source]
-        #     if row.empty:
-        #         return float("nan"), float("nan")
-            
-        #     # Cari kolom p-value dengan nama yang benar
-        #     p_cols = [col for col in row.columns if 'p' in col.lower()]
-        #     if not p_cols:
-        #         print(f"Warning: tidak ada kolom p-value. Columns: {row.columns.tolist()}")
-        #         return float("nan"), float("nan")
-            
-        #     p_col = p_cols[0]  # Ambil kolom pertama yang mengandung 'p'
-        #     return float(row["F"].values[0]), float(row[p_col].values[0])
+            return float(row["F"].values[0]), float(row[p_col].values[0])
 
         F_strat, p_strat = _extract("strategy")
         F_alpha, p_alpha = _extract("alpha")

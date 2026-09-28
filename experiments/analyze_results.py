@@ -111,19 +111,28 @@ def build_summary_table(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_pareto_frontier(summary_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Mark Pareto-optimal (strategy, alpha) points per dataset, using mean
-    global accuracy (higher better) vs. mean Gini coefficient (lower
+    Mark Pareto-optimal strategies per (dataset, alpha) combination, using
+    mean global accuracy (higher better) vs. mean Gini coefficient (lower
     better) as the two trade-off axes.
 
-    A point is Pareto-optimal if no other point in the same dataset has
-    both >= accuracy AND <= Gini, with at least one strictly better.
+    Dominance is computed WITHIN each (dataset, alpha) group only — i.e.
+    the 3 strategies are compared against each other at a fixed label-skew
+    severity, never across different alpha levels. Mixing alpha levels
+    into one dominance comparison would conflate "easier" (higher alpha,
+    less skewed) conditions with harder ones and produce a meaningless
+    frontier, since the proposal's trade-off question is about which
+    strategy wins AT a given alpha, not across alphas.
+
+    A point is Pareto-optimal if no other strategy at the same (dataset,
+    alpha) has both >= accuracy AND <= Gini, with at least one strictly
+    better.
 
     Returns:
         DataFrame (one row per dataset x strategy x alpha) with a
         `pareto_optimal` boolean column.
     """
     rows = []
-    for dataset, group in summary_df.groupby("dataset"):
+    for (dataset, alpha), group in summary_df.groupby(["dataset", "alpha"]):
         group = group.reset_index(drop=True)
         flags = []
         for i, row in group.iterrows():

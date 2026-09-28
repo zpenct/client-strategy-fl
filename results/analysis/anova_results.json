@@ -1,0 +1,102 @@
+{
+  "cifar10": {
+    "A1_global_accuracy": {
+      "F_strategy": 0.4948,
+      "p_strategy": 0.6178,
+      "F_alpha": 58.0168,
+      "p_alpha": 0.0,
+      "F_interaction": 0.3833,
+      "p_interaction": 0.8177,
+      "significant_strategy": false,
+      "significant_alpha": true,
+      "significant_interaction": false,
+      "dependent_var": "A1_global_accuracy"
+    },
+    "B1_accuracy_variance": {
+      "F_strategy": 0.3735,
+      "p_strategy": 0.6936,
+      "F_alpha": 82.7229,
+      "p_alpha": 0.0,
+      "F_interaction": 0.3858,
+      "p_interaction": 0.8159,
+      "significant_strategy": false,
+      "significant_alpha": true,
+      "significant_interaction": false,
+      "dependent_var": "B1_accuracy_variance"
+    },
+    "B2_gini_coefficient": {
+      "F_strategy": 0.0293,
+      "p_strategy": 0.9711,
+      "F_alpha": 38.2949,
+      "p_alpha": 0.0,
+      "F_interaction": 0.0343,
+      "p_interaction": 0.9975,
+      "significant_strategy": false,
+      "significant_alpha": true,
+      "significant_interaction": false,
+      "dependent_var": "B2_gini_coefficient"
+    },
+    "B3_participation_fairness": {
+      "F_strategy": 15.5294,
+      "p_strategy": 0.0001,
+      "F_alpha": 10.3557,
+      "p_alpha": 0.001,
+      "F_interaction": 2.848,
+      "p_interaction": 0.0544,
+      "significant_strategy": true,
+      "significant_alpha": true,
+      "significant_interaction": false,
+      "dependent_var": "B3_participation_fairness"
+    }
+  },
+  "mnist": {
+    "A1_global_accuracy": {
+      "F_strategy": 2.2892,
+      "p_strategy": 0.1301,
+      "F_alpha": 29.2716,
+      "p_alpha": 0.0,
+      "F_interaction": 2.2567,
+      "p_interaction": 0.1033,
+      "significant_strategy": false,
+      "significant_alpha": true,
+      "significant_interaction": false,
+      "dependent_var": "A1_global_accuracy"
+    },
+    "B1_accuracy_variance": {
+      "F_strategy": 6.0387,
+      "p_strategy": 0.0098,
+      "F_alpha": 67.4859,
+      "p_alpha": 0.0,
+      "F_interaction": 6.3535,
+      "p_interaction": 0.0023,
+      "significant_strategy": true,
+      "significant_alpha": true,
+      "significant_interaction": true,
+      "dependent_var": "B1_accuracy_variance"
+    },
+    "B2_gini_coefficient": {
+      "F_strategy": 5.144,
+      "p_strategy": 0.0171,
+      "F_alpha": 55.9614,
+      "p_alpha": 0.0,
+      "F_interaction": 5.4602,
+      "p_interaction": 0.0047,
+      "significant_strategy": true,
+      "significant_alpha": true,
+      "significant_interaction": true,
+      "dependent_var": "B2_gini_coefficient"
+    },
+    "B3_participation_fairness": {
+      "F_strategy": 2.2439,
+      "p_strategy": 0.1349,
+      "F_alpha": 0.7968,
+      "p_alpha": 0.4661,
+      "F_interaction": 1.0722,
+      "p_interaction": 0.3991,
+      "significant_strategy": false,
+      "significant_alpha": false,
+      "significant_interaction": false,
+      "dependent_var": "B3_participation_fairness"
+    }
+  }
+}

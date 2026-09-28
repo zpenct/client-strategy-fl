@@ -8,6 +8,24 @@
 
 # Refactor Log:
 
+## 2026-09-28 — Verifikasi & perbaikan pipeline analisis end-to-end (setelah full batch 54 eksperimen selesai)
+
+User sudah menjalankan full batch 54 eksperimen baru (hasil di `results/`). Diminta verifikasi kode analisis (`experiments/analyze_results.py`, `notebooks/analysis.ipynb`, dan file terkait) bebas error sebelum dipakai untuk tahap analisis skripsi.
+
+**2 bug nyata ditemukan & diperbaiki, keduanya baru ketahuan setelah dijalankan terhadap data 54-eksperimen asli:**
+
+1. `experiments/analyze_results.py` — `build_pareto_frontier()` grouping salah: `groupby("dataset")` mencampur SEMUA nilai alpha jadi satu perbandingan dominance, padahal Pareto frontier harus dibandingkan PER (dataset, alpha) — akibatnya banyak titik yang seharusnya optimal (mis. `random` di MNIST α=0.1 yang terbaik di akurasi DAN Gini sekaligus) malah ditandai `pareto_optimal=False`. Fix: groupby `["dataset","alpha"]`.
+2. `src/metrics/evaluator.py` — `run_two_way_anova()` hardcode nama kolom pingouin `"p-unc"` (strip), padahal versi pingouin terinstal (0.6.1) pakai `"p_unc"` (underscore) — selalu `KeyError`. Fix: resolve nama kolom p-value secara dinamis (menerima kedua ejaan).
+3. `notebooks/analysis.ipynb` — bug yang SAMA (`'p-unc'`) juga ada ter-duplikasi langsung di cell notebook (bukan cuma di evaluator.py), plus 2 cell "Pareto Frontier" detail (multi-metrik) memakai nama kolom panjang (`A1_global_accuracy`, dst) yang TIDAK ADA di DataFrame notebook (kolomnya pendek: `A1`,`A2`,`B1`,`B2`,`B3`) — akan `KeyError` kalau dijalankan. Root cause: `notebooks/add_improvements.py` adalah script one-time yang dulu inject cell-cell ini ke notebook dengan asumsi nama kolom yang salah. **Jangan jalankan ulang `add_improvements.py`** — akan menyuntik ulang bug yang sama di atas notebook yang sudah diperbaiki.
+4. Notebook juga dirapikan: hapus 1 cell mati (`savefig2`, typo `bbox_inches='thight'`, tidak pernah dipanggil), hapus 1 fungsi duplikat mati (`run_two_way_anova_fixed`, tidak pernah dipanggil karena cell pemanggilnya di-comment), dan penomoran section dirapikan (8→Early Insights, 9→ANOVA Detail, 10→Pareto Detail).
+
+**Verifikasi:** `analysis.ipynb` dieksekusi headless end-to-end (`python -m nbconvert --execute`) terhadap 54 hasil eksperimen asli — **0 error di 38 cell**. Angka F/p ANOVA dari notebook dicek silang dengan `analyze_results.py` — identik. Notebook (dengan output baru yang benar) sudah menggantikan versi lama yang tersimpan (sebelumnya berisi path mesin lama + error `'p-unc'` + angka dari strategi lama/salah).
+
+**Belum ditindak (butuh keputusan user), tidak diubah sendiri:**
+- `notebooks/analysis_fixed.ipynb` — nyaris duplikat `analysis.ipynb` versi lebih lama, bug yang sama, tidak direferensikan README. Perlu diputuskan: dihapus / disamakan / dibiarkan.
+- `notebooks/analysis_baseline.ipynb` + `.py` — analisis cepat 3-eksperimen (α=0.1, seed=42), dari commit Juli, kemungkinan sudah superseded oleh `analysis.ipynb` yang mencakup 54 eksperimen penuh.
+- `notebooks/add_improvements.py` — script codegen one-time, sudah selesai tugasnya (jangan dijalankan ulang, lihat poin 3 di atas).
+
 ## 2026-09-22 — Strategi seleksi klien dirombak sesuai paper Oort & FairFedCS
 
 **Keputusan desain (dikonfirmasi user):**

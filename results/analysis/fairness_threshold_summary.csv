@@ -1,0 +1,7 @@
+dataset,alpha,pareto_optimal_strategies,fairness_is_optimal
+cifar10,0.1,fairness,True
+cifar10,0.5,"fairness, random",True
+cifar10,1.0,random,False
+mnist,0.1,random,False
+mnist,0.5,"fairness, performance",True
+mnist,1.0,"performance, random",False
