@@ -23,7 +23,7 @@ Repository ini berisi sistem simulasi Federated Learning (FL) untuk membandingka
 | Strategi | Deskripsi | Paper acuan |
 |---|---|---|
 | `random` | Seleksi klien sepenuhnya acak per round | FedAvg baseline (McMahan dkk., 2017) |
-| `performance` | Statistical utility berbasis loss lokal (`U(i)=|Bi|*sqrt(mean(Loss(k)^2))`) + bandit exploration-exploitation (staleness bonus, robustness clipping, cutoff-pool proportional sampling). Komponen system-utility/pacer dari paper asli di-drop karena riset ini simulasi 1 mesin tanpa heterogenitas device nyata. | Oort (Lai dkk., 2021) |
+| `performance` | Statistical utility berbasis loss lokal (`U(i)=|Bi|*sqrt(mean(Loss(k)^2))`) + bandit exploration-exploitation (staleness bonus, robustness clipping, cutoff-pool proportional sampling). Pada grid utama (`results/`) komponen system-utility/pacer tidak aktif (tanpa heterogenitas device). Dengan `--system_hetero` (`results_system/`), system utility `(T/t_i)^2`, pacer, dan exploration berbasis kecepatan diaktifkan di atas heterogenitas perangkat tersimulasi (`src/system/device_model.py`). | Oort (Lai dkk., 2021) |
 | `fairness` | Beta Reputation System (dari exact Shapley Value kontribusi klien tiap round) + virtual fairness queue (Lyapunov optimization), dikombinasikan jadi Client Suitability Index `CSI_i = sigma*r_i + Q_i` untuk pilih top-m klien | FairFedCS (Shi dkk., 2023) |
 
 **Non-IID disimulasikan** menggunakan distribusi Dirichlet dengan parameter α:
@@ -194,6 +194,16 @@ python experiments/run_batch.py --datasets mnist --skip_existing
 # Hanya CIFAR-10 (27 eksperimen)
 python experiments/run_batch.py --datasets cifar10 --skip_existing
 ```
+
+### Eksperimen heterogenitas perangkat (opsi C)
+
+```bash
+python experiments/run_batch.py --system_hetero --skip_existing        # semua 54, ke results_system/
+python experiments/run_batch.py --system_hetero --datasets cifar10 --skip_existing
+python experiments/analyze_results.py --results_dir results_system
+```
+
+Tiap klien diberi kecepatan komputasi & bandwidth tetap (log-normal, diacak per seed, independen dari data). Durasi klien `t_i = |B_i|*E/speed_i + 2*model_MB/bandwidth_i`, durasi round = klien terpilih paling lambat. Hasil tambahan per eksperimen: `device_profiles.json`, `sim_total_time_seconds`, `A2_time_to_target_seconds`.
 
 > **Catatan runtime — strategi `fairness` (FairFedCS) jauh lebih lambat.** Strategi ini menghitung exact Shapley Value tiap round (32 evaluasi subset koalisi untuk m=5 klien), menambah ±45-55 menit per eksperimen di atas baseline `random`/`performance`. Dari smoke test 1-round: random≈67s, performance≈93s, fairness≈228s (1 round saja). Untuk 20 round penuh, eksperimen `fairness` bisa memakan >1 jam masing-masing — pertimbangkan menjalankan batch semalaman atau per-strategi terpisah (`--strategies fairness`) agar progres tetap terpantau.
 

@@ -37,7 +37,7 @@ from typing import List, Optional
 # Allow running from project root
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from experiments.run_single import run_experiment
+from experiments.run_single import run_experiment, RESULTS_SYSTEM_DIR
 from src.utils.logger import get_logger
 
 
@@ -60,6 +60,7 @@ class ExperimentSpec:
     dataset: str
     alpha: float
     seed: int
+    results_root: Path = RESULTS_DIR
 
     @property
     def experiment_id(self) -> str:
@@ -67,7 +68,7 @@ class ExperimentSpec:
 
     @property
     def result_dir(self) -> Path:
-        return RESULTS_DIR / self.experiment_id
+        return self.results_root / self.experiment_id
 
     def is_complete(self) -> bool:
         """True if final_metrics.json exists in the result directory."""
@@ -189,6 +190,7 @@ def run_batch(
     clients_per_round: int = 5,
     local_epochs: int = 3,
     learning_rate: float = 0.01,
+    system_hetero: bool = False,
 ) -> dict:
     """
     Execute the batch of FL experiments.
@@ -206,11 +208,16 @@ def run_batch(
         clients_per_round: Clients selected per round.
         local_epochs: Local training epochs per round.
         learning_rate: Client learning rate.
+        system_hetero: Simulate device heterogeneity; results go to
+            results_system/ instead of results/.
 
     Returns:
         Dict with summary counts: done, skipped, failed.
     """
     grid = build_experiment_grid(strategies, datasets, alphas, seeds)
+    if system_hetero:
+        for spec in grid:
+            spec.results_root = RESULTS_SYSTEM_DIR
     total = len(grid)
 
     # Apply --start_from (convert to 0-indexed)
@@ -269,6 +276,7 @@ def run_batch(
                 learning_rate=learning_rate,
                 trace=False,
                 logger=exp_logger,
+                system_hetero=system_hetero,
             )
             elapsed = time.time() - t0
             elapsed_per_exp.append(elapsed)
@@ -366,6 +374,10 @@ def main():
         "--lr", type=float, default=0.01,
         help="Client learning rate (default: 0.01)"
     )
+    parser.add_argument(
+        "--system_hetero", action="store_true",
+        help="Simulate device heterogeneity (results go to results_system/)"
+    )
 
     args = parser.parse_args()
 
@@ -382,6 +394,7 @@ def main():
         clients_per_round=args.clients_per_round,
         local_epochs=args.local_epochs,
         learning_rate=args.lr,
+        system_hetero=args.system_hetero,
     )
 
     sys.exit(0 if result["failed"] == 0 else 1)

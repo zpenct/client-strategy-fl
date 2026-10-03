@@ -8,6 +8,141 @@
 
 # Refactor Log:
 
+## 2026-10-03 — Opsi C: heterogenitas perangkat tersimulasi + Oort system utility (kode siap, batch BELUM dijalankan)
+
+Setelah bimbingan: opsi A (sudah selesai 2026-09-29) dan C dikerjakan, opsi B (N=50) ditunda.
+
+**File baru/diubah:**
+- `src/system/device_model.py` (baru): tiap klien diberi `compute_speed` (sampel/detik, log-normal median 200, σ=1) dan `bandwidth` (MB/s, log-normal median 5, σ=1). Diacak dengan seed+10000, sehingga independen dari partisi data dan tidak berkorelasi dengan label skew. Durasi klien `t_i = |B_i|·E/speed_i + 2·model_MB/bandwidth_i`. Durasi round = klien terpilih paling lambat (FedAvg sinkron). Pendekatan ini mengikuti metodologi Oort sendiri, yang juga mengemulasi runtime perangkat (§7.1, trace AI Benchmark/MobiPerf); spread ~±1 orde besaran sesuai Fig. 2 paper.
+- `src/strategies/performance_strategy.py`: bila diberi `device_model`, Oort memakai Eq. 1 penuh: `Util(i) = (U(i)+staleness)·(T/t_i)^α` jika `t_i>T`, dengan α=2. **Pacer** (Alg. 1 baris 7–8): jika utilitas statistik W round terakhir < W round sebelumnya, T dinaikkan. T dinyatakan sebagai persentil durasi klien (awal 30, Δ=+5 poin), mengikuti implementasi resmi Oort di FedScale. W=5 (paper W=20 untuk ratusan round; pacer baru bisa aktif setelah 2W round). **Exploration** memakai SampleBySpeed (peluang ∝ 1/t_i). Tanpa `device_model`, perilakunya identik dengan versi lama.
+- `experiments/run_single.py` & `run_batch.py`: flag `--system_hetero`. Hasilnya ke folder **`results_system/`** (terpisah, tidak menimpa `results/`). Output tambahan: `device_profiles.json`, `sim_round_durations`, `sim_total_time_seconds`, **`A2_time_to_target_seconds`** (waktu simulasi sampai target akurasi). Random & FairFedCS tetap tidak memakai info kecepatan (sesuai algoritmanya), tapi waktu simulasi mereka tetap dicatat agar bisa dibandingkan.
+- `experiments/analyze_results.py`: membaca `sim_total_time_seconds` & `A2_time_to_target_seconds` (summary) + ANOVA untuk `sim_total_time_seconds`. Pakai `--results_dir results_system`.
+- `tests/test_system_heterogeneity.py` (baru): 16 test (device model deterministik & independen dari data, rumus durasi, penalti straggler, pacer, SampleBySpeed, metrik waktu simulasi). Total **47/47 test pass**.
+
+**Bug yang ditemukan & diperbaiki saat implementasi — memengaruhi Oort di grid 54 eksperimen lama:**
+Di Flower 1.32, `ClientProxy.cid` adalah *node id acak 64-bit*, bukan nomor partisi data. Ketiga strategi memetakan cid → index dengan mengurutkan cid, sehingga "klien 3" di strategi **bukan** klien yang memegang `client_3.pt` (urutannya acak per run). Fix: `src/strategies/client_ids.py`, memetakan via `proxy.partition_id`.
+- Dampak ke hasil lama: **Oort** memakai `client_num_samples[index]` (|B_i| di U(i)), jadi pada grid lama |B_i| tertukar antar klien. Utility Oort memakai jumlah sampel klien yang salah. Komponen loss-nya tetap benar karena loss & seleksi memakai index yang sama.
+- **Random**: tidak berdampak pada seleksi; hanya label log/participation_count yang permutasi (B3 tidak berubah karena std invarian terhadap permutasi).
+- **FairFedCS**: tidak berdampak. Reputasi/antrean/Shapley hanya memakai index yang konsisten dalam 1 run dan tidak memakai metadata partisi; hanya label klien di log yang tidak cocok dengan nomor file partisi.
+- Rekomendasi: jalankan ulang 18 eksperimen Oort pada grid lama (`run_batch.py --strategies performance`, setelah folder lama dipindah) agar U(i) benar. Belum dikerjakan — butuh keputusan user.
+
+**Smoke test** (MNIST α=0.1, 2 round, 1 epoch, `--system_hetero`): random & performance jalan tanpa error. Durasi round & `device_profiles.json` tersimpan, dan `analyze_results.py --results_dir` bisa membaca hasilnya. Contoh: waktu simulasi 2 round Oort 83s vs Random 109s.
+
+**Cara menjalankan (belum dijalankan):**
+```
+python experiments/run_batch.py --system_hetero --skip_existing
+python experiments/analyze_results.py --results_dir results_system
+```
+Estimasi waktu nyata ~ sama dengan grid lama (simulasi waktu tidak menambah komputasi): ±16 jam untuk 54 eksperimen, didominasi FairFedCS.
+
+## 2026-09-28 — Rangkuman hasil 54 eksperimen & jawaban Rumusan Masalah
+
+Sumber: `results/analysis/{summary_table.csv, anova_results.json, pareto_data.csv, fairness_threshold_summary.csv}` + `accuracy_history` tiap run. Setup: N=10 klien, m=5/round, 20 round, 3 local epoch, 3 seed per sel (n=3). Semua angka = rata-rata 3 seed.
+
+### Tabel ringkas (mean)
+
+| Dataset | α | Strategi | A1 Akurasi (%) | A2 Round→target | B1 Std akurasi | B2 Gini | B3 Std partisipasi |
+|---|---|---|---|---|---|---|---|
+| CIFAR-10 | 0.1 | Random | 54.13 ± 5.86 | tidak tercapai | 0.230 | 0.240 | **2.31** |
+| | | Oort | 55.08 ± 5.35 | tidak tercapai | 0.238 | 0.243 | 3.42 |
+| | | FairFedCS | **58.10** ± 4.17 | tidak tercapai | **0.223** | **0.237** | 3.17 |
+| CIFAR-10 | 0.5 | Random | 69.25 ± 4.97 | 14.0 (3/3) | **0.094** | **0.070** | **1.91** |
+| | | Oort | 69.21 ± 1.02 | 15.5 (2/3) | 0.105 | 0.072 | 3.55 |
+| | | FairFedCS | **70.63** ± 1.13 | 14.0 (3/3) | 0.125 | 0.085 | 2.77 |
+| CIFAR-10 | 1.0 | Random | **72.60** | 12.3 | **0.045** | **0.031** | 1.91 |
+| | | Oort | 72.26 | **12.0** | 0.057 | 0.039 | 2.79 |
+| | | FairFedCS | 71.76 | 13.3 | 0.054 | 0.036 | **1.30** |
+| MNIST | 0.1 | Random | **98.29** | 4.0 | **0.014** | **0.008** | **1.91** |
+| | | Oort | 96.95 | 3.3 | 0.034 | 0.019 | 2.82 |
+| | | FairFedCS | 97.96 | **3.0** | 0.019 | 0.010 | 2.29 |
+| MNIST | 0.5 | semua | 99.12–99.21 | 1.0 (semua) | ≈0.002 | ≈0.001 | R 1.91 / O 2.43 / F 2.48 |
+| MNIST | 1.0 | semua | 99.20–99.23 | 1.0 (semua) | ≈0.0015 | ≈0.0008 | O **1.77** / R 1.88 / F 2.44 |
+
+ANOVA dua arah (strategy × α, per dataset, n=3/sel):
+
+| Dataset | Metrik | p strategi | p α | p interaksi |
+|---|---|---|---|---|
+| CIFAR-10 | A1 | 0.618 | <0.001 | 0.818 |
+| CIFAR-10 | B1 | 0.694 | <0.001 | 0.816 |
+| CIFAR-10 | B2 | 0.971 | <0.001 | 0.998 |
+| CIFAR-10 | B3 | **<0.001** | 0.001 | 0.054 |
+| MNIST | A1 | 0.130 | <0.001 | 0.103 |
+| MNIST | B1 | **0.010** | <0.001 | **0.002** |
+| MNIST | B2 | **0.017** | <0.001 | **0.005** |
+| MNIST | B3 | 0.135 | 0.466 | 0.399 |
+
+Pareto (akurasi vs Gini, per dataset×α): CIFAR-10 α=0.1 → FairFedCS; α=0.5 → FairFedCS & Random; α=1.0 → Random. MNIST α=0.1 → Random; α=0.5 → FairFedCS & Oort; α=1.0 → Oort & Random.
+
+### RM1 — Pengaruh strategi terhadap akurasi global & fairness
+
+Pada seluruh kondisi, **tingkat label skew (α) jauh lebih menentukan daripada pilihan strategi**. Perbedaan akurasi antar strategi pada satu α umumnya 1–4 poin persen dan berada di dalam rentang simpangan baku antar-seed; ANOVA tidak menemukan efek strategi yang signifikan terhadap akurasi global (CIFAR-10 p=0.62, MNIST p=0.13).
+
+Secara deskriptif, FairFedCS unggul akurasi pada skew berat–sedang di CIFAR-10 (α=0.1: 58.1% vs 55.1% Oort vs 54.1% Random; α=0.5: 70.6% dan satu-satunya selain Random yang mencapai target 70% di ketiga seed), dengan varians antar-seed yang juga lebih kecil. Keunggulan ini hilang pada α=1.0, di mana Random sedikit lebih baik. Di MNIST, semua strategi mencapai ≥97% dan target 85% tercapai sejak round 1 untuk α≥0.5 (efek plafon), sehingga dataset ini kurang mampu membedakan strategi kecuali pada α=0.1.
+
+Untuk fairness per-klien (B1/B2), efek strategi signifikan hanya di MNIST, dan efek itu terutama digerakkan oleh **Oort yang paling tidak adil pada α=0.1** (std akurasi 0.034 vs 0.019 FairFedCS vs 0.014 Random) — terlihat juga dari interaksi strategi×α yang signifikan (p≈0.002–0.005): perbedaan antar strategi hanya muncul saat skew berat. Untuk fairness partisipasi (B3), strategi berpengaruh signifikan di CIFAR-10 (p<0.001): Oort konsisten menghasilkan partisipasi paling timpang, Random paling merata pada α rendah, FairFedCS paling merata pada α=1.0.
+
+### RM2 — Label skew terhadap trade-off akurasi–fairness & signifikansinya
+
+α berpengaruh signifikan (p<0.001) terhadap A1, B1, dan B2 di kedua dataset. Makin berat skew, akurasi turun dan ketimpangan antar-klien naik, dan efeknya jauh lebih besar pada CIFAR-10 (akurasi turun ~14–18 poin dan Gini naik ~7× dari α=1.0 ke α=0.1) daripada MNIST (turun ~1–2 poin). Trade-off akurasi–fairness baru benar-benar muncul pada skew berat, yang terlihat dari interaksi strategi×α yang signifikan untuk B1/B2 di MNIST. Pada skew ringan (α=1.0), ketiga strategi praktis setara. Di CIFAR-10 interaksi untuk A1/B1/B2 tidak signifikan: dengan n=3 seed dan varians antar-seed yang tinggi pada α=0.1 (std ±4–6 poin), perbedaan deskriptif yang ada belum dapat dikonfirmasi secara statistik.
+
+### RM3 — Threshold α di mana FairFedCS optimal & konsistensinya
+
+Berdasarkan Pareto frontier (akurasi vs Gini), FairFedCS optimal di CIFAR-10 pada **α=0.1 (satu-satunya titik optimal) dan α=0.5**, tetapi tidak pada α=1.0. Jadi FairFedCS menguntungkan pada skew berat–sedang dan kehilangan keunggulannya saat data mendekati IID. Pola ini **tidak konsisten di MNIST**: pada α=0.1 justru Random yang optimal, dan FairFedCS hanya ikut optimal pada α=0.5, dengan selisih yang sangat kecil (orde 0.01–0.1 poin, dalam noise). Ketidakkonsistenan ini wajar, karena MNIST terlalu mudah untuk model CNN ini sehingga hampir semua strategi mendekati plafon akurasi. Catatan: Pareto dihitung dari rata-rata, dan perbedaan A1/B2 antar strategi di CIFAR-10 tidak signifikan secara ANOVA, jadi klaim threshold sebaiknya ditulis sebagai kecenderungan empiris, bukan kesimpulan statistik.
+
+### Mengapa beberapa hasil terlihat "berlawanan" dengan sifat strategi (untuk pembahasan)
+
+1. **Oort bukan yang tercepat.** Keunggulan kecepatan Oort di paper aslinya berasal terutama dari *system utility* (memilih klien cepat untuk mengurangi durasi round/wall-clock), dan komponen ini sengaja di-drop di sini. Yang tersisa hanya *statistical utility* `|B_i|·sqrt(mean loss²)`, yang memilih klien dengan **loss tinggi**, bukan klien "berperforma bagus". Di bawah label skew berat, klien loss-tinggi adalah klien dengan distribusi label paling menyimpang, sehingga model global terdorong ke arah klien tersebut. Itu sebabnya Oort paling tidak adil di MNIST α=0.1 (std akurasi 0.034) dan akurasinya terendah di sana (96.9%). A2 diukur dalam round, bukan waktu, jadi keuntungan Oort memang tidak bisa terlihat di metrik ini.
+2. **Mekanisme bandit Oort hampir tidak bekerja pada N=10, m=5.** ε awal 0.9 → round 1–2 hampir semuanya eksplorasi, dan setelah ~2 round semua 10 klien sudah "explored" sehingga eksplorasi habis. Selanjutnya seleksi adalah eksploitasi proporsional utility pada pool kecil. Oort dirancang untuk ribuan klien, sehingga pada skala ini perilakunya mendekati "random terbobot loss". Hal ini menjelaskan hasil yang mirip Random tetapi dengan partisipasi lebih timpang (B3 tertinggi di hampir semua sel).
+3. **FairFedCS tidak selalu punya B3 terendah.** FairFedCS tidak mengejar partisipasi *sama rata*. Ia mengejar keadilan *proporsional terhadap reputasi*: antrean virtual `Q_i` tumbuh sebesar `ε·r_i`, jadi klien bereputasi rendah (Shapley negatif) memang sengaja lebih jarang dipilih. Random dengan 20 round × 5/10 memberi partisipasi yang secara statistik sudah cukup merata. B3 Random bernilai sama (1.9121) di 4 dari 6 sel. Ini kemungkinan karena urutan sampling acak Flower terutama ditentukan oleh seed, bukan oleh α/dataset, dan ini wajar untuk baseline random (belum diverifikasi di kode, 2 sel lain berbeda).
+4. **Perbedaan kecil & banyak yang tidak signifikan.** Dengan hanya 10 klien (m/N=50%), setiap strategi tetap melihat sebagian besar klien tiap 2 round, sehingga ruang pembeda antar strategi sempit. Ditambah n=3 seed, daya uji statistik menjadi rendah. Ini perlu dicantumkan di bagian keterbatasan.
+5. **Biaya komputasi.** Rata-rata waktu per run: Random 4.9/8.0 menit, Oort 7.2/10.3 menit, FairFedCS 29.5/33.1 menit (MNIST/CIFAR). FairFedCS ~4–6× lebih lambat karena 32 evaluasi subset Shapley per round.
+
+### Anomali tambahan (dicek dari participation_log.json & log Shapley)
+
+6. **Random justru paling adil di akurasi per-klien (B1/B2) di banyak kondisi.** Random punya B1/B2 terendah di CIFAR α=0.5, CIFAR α=1.0, dan MNIST α=0.1. FairFedCS di CIFAR α=0.5 malah punya B1 terburuk (0.125), padahal akurasinya tertinggi. Penyebabnya: "fairness" pada FairFedCS adalah keadilan *seleksi* yang proporsional terhadap reputasi, bukan pemerataan *akurasi* per klien. Model global yang lebih bias ke klien berkontribusi tinggi bisa naik akurasinya, tapi klien minoritas makin tertinggal.
+7. **FairFedCS tetap membuat partisipasi timpang.** Contoh CIFAR α=0.1 s42: klien 3 dipilih 17/20 round, sedangkan klien 6 hanya 6/20. Pola 17× ini muncul di ketiga seed. Klien dengan Shapley selalu positif (klien 3 & 7: φ≈+2 sampai +11 tiap round) reputasinya terus naik, lalu antrean Q klien itu juga tumbuh lebih cepat (`c_i = ε·r_i`). Akibatnya klien itu makin sering dipilih dan terjadi efek "rich get richer".
+8. **Seleksi awal FairFedCS deterministik & identik di semua seed.** Round 1–3 selalu {0-4}, {5-9}, {0-4}. Saat semua reputasi masih 0.5 dan Q=0, CSI semua klien sama, sehingga tie-break memakai indeks klien. Perilaku ini sesuai algoritma (seleksi top-m yang deterministik, bukan sampling), tapi artinya seed hanya memengaruhi FairFedCS lewat partisi data dan inisialisasi model, bukan lewat seleksi.
+9. **Shapley Value kehilangan daya beda pada data mudah/IID.** Di MNIST α=1.0, setelah round 1 nilai φ hanya berkisar ±0.01–0.2 poin akurasi, pada level noise. Karena reputasi di-update berdasarkan *tanda* φ, reputasi praktis diisi noise. Di kondisi ini FairFedCS berperilaku mirip round-robin + noise, sehingga B3-nya tidak lebih baik dari Random. Sebaliknya, di CIFAR α=0.1 Shapley sangat informatif (rentang −6 s/d +11). Ini konsisten dengan temuan bahwa FairFedCS hanya unggul pada skew berat.
+10. **Nilai φ round 1 sangat besar (MNIST: +15 s/d +19).** Baseline f(∅) adalah model inisialisasi acak (~10%), jadi semua klien mendapat φ positif besar dan +1 reputasi "gratis". Ini wajar, tapi round 1 tidak membedakan kualitas klien.
+11. **B3 Random identik (1.9121) di beberapa sel** — sudah dicek: yang sama adalah *multiset* jumlah partisipasi, sedangkan ID klien yang terpilih berbeda. Sampling Flower memakai urutan RNG dari seed yang sama terhadap daftar CID, sehingga pola hitungannya sama walaupun datasetnya berbeda. Ini bukan bug, dan wajar karena seleksi random memang tidak bergantung pada data.
+12. **Oort sering "melupakan" klien tertentu.** Contoh: di MNIST α=0.1 s42 klien 8 hanya dipilih 3/20, di CIFAR α=0.5 s42 klien 8 dipilih 4/20. Klien yang loss-nya kecil (datanya sudah "dipelajari") utility-nya rendah dan jarang terpilih lagi. Ini sumber B3 tertinggi pada Oort.
+13. **Metrik A2 jenuh/kosong di dua ekstrem.** Di MNIST α≥0.5 semua strategi mencapai target 85% di round 1, jadi A2 = 1 untuk semua dan tidak membedakan apa pun. Di CIFAR α=0.1 tidak ada strategi yang mencapai 70% (A2 = NaN semua). Metrik "kecepatan konvergensi" hanya informatif di CIFAR α=0.5/1.0 dan MNIST α=0.1. Sebagai pelengkap bisa dipakai rata-rata akurasi sepanjang round (AUC); dengan metrik ini FairFedCS tertinggi di CIFAR α=0.1 (46.7 vs 44.4/44.1) dan MNIST α=0.1.
+14. **Variansi antar-seed sangat besar di CIFAR α=0.1** (std A1 ±4–6 poin, lebih besar dari selisih antar strategi). Partisi Dirichlet berbeda per seed, dan pada α=0.1 pembagian label antar klien sangat bergantung pada hasil sampling. Inilah penyebab utama efek strategi tidak signifikan di ANOVA.
+
+### Akar penyebab anomali & opsi perbaikan (2026-09-29, belum dikerjakan — menunggu keputusan user)
+
+Akar penyebab (terverifikasi dari kode & log):
+- **Skala eksperimen (paling dominan).** N=10 dan m=5 (50%): Random saja sudah memilih tiap klien ±10×/20 round, sehingga hampir tidak ada ruang bagi strategi pintar untuk berbeda. Oort (ribuan klien) dan FairFedCS (ratusan klien, m/N kecil) dirancang untuk populasi besar. Eksplorasi Oort sudah habis di round ~2.
+- **Beda definisi fairness.** FairFedCS mengejar keadilan *seleksi* yang proporsional terhadap reputasi (Q tumbuh `ε·r_i`), bukan pemerataan *akurasi*. Ini menimbulkan efek rich-get-richer: klien 3 dipilih 17/20. Oort statistical utility memilih klien loss-tinggi, yang di bawah skew adalah klien paling menyimpang.
+- **Cara ukur.** B1/B2 diambil dari 1 snapshot round terakhir. Akurasi per-klien dievaluasi pada data *train* lokal klien (`fl_client.evaluate` memakai `self.trainloader`). A2 jenuh (MNIST round 1) atau NaN (CIFAR α=0.1). n=3 seed dengan variansi besar.
+- **Shapley.** Dihitung pada test set global. Nilainya noise pada data mudah, sementara reputasi hanya memakai tanda φ.
+
+Opsi perbaikan yang sah (bukan mengakali hasil):
+1. Tanpa re-run: B1/B2 rata-rata k round terakhir, metrik AUC akurasi, reframing pembahasan. Hasil "Random kompetitif pada N kecil" adalah temuan yang valid.
+2. Re-run dengan desain lebih tepat: N lebih besar (mis. 50, m=5 / 10%), seed ditambah, evaluasi per-klien pada split test lokal. Mengubah Batasan proposal (N=10) → perlu persetujuan dosen.
+3. Oort + heterogenitas sistem tersimulasi + metrik wall-clock (asumsi latency harus dicatat eksplisit).
+Tidak sah: tuning σ/parameter atau memilih seed sampai hasil "sesuai harapan".
+
+### Opsi A dieksekusi (2026-09-29)
+
+`experiments/analyze_results.py` ditambah metrik robust dari `metrics_per_round.json` (tanpa re-run): `A_auc_accuracy` (rata-rata akurasi 20 round, proxy kecepatan konvergensi), `A1_lastK_accuracy`, `B1_lastK_accuracy_std`, `B2_lastK_gini` (rata-rata 5 round terakhir). Metrik ini masuk ke `summary_table.csv` dan `anova_results.json`. Output baru: `pareto_data_robust.csv` dan `fairness_threshold_summary_robust.csv`.
+
+Hasil utama:
+- AUC akurasi: FairFedCS tertinggi di CIFAR α=0.1 (46.7 vs 44.4 Oort vs 44.1 Random) dan MNIST α=0.1 (92.7 vs 92.6 vs 91.7). Oort tertinggi di CIFAR α=0.5 (61.8), Random tertinggi di α=1.0.
+- Setelah dirata-rata 5 round, keunggulan "Random paling adil" mengecil: selisih B1/B2 antar strategi jadi sangat tipis. Efek strategi yang tadinya signifikan di MNIST (B1 p=0.010, B2 p=0.017) **hilang** (p≈0.85–0.89). Artinya signifikansi itu berasal dari fluktuasi round terakhir, bukan efek yang stabil.
+- ANOVA semua metrik robust: efek α signifikan (p<0.001), efek strategi & interaksi tidak signifikan (p>0.5).
+- Pareto robust: FairFedCS optimal di CIFAR α=0.1 (bersama Random), MNIST α=0.1 & 0.5. Random optimal di hampir semua sel. Threshold "FairFedCS optimal pada skew berat (α=0.1)" kini **konsisten di kedua dataset**, tapi tidak eksklusif.
+- Kesimpulan jujur: dengan N=10/m=5, pengaruh strategi seleksi terhadap akurasi & fairness per-klien tidak signifikan. Label skew yang dominan. FairFedCS cenderung unggul (deskriptif) pada α=0.1.
+
+### Catatan untuk opsi B (belum dikerjakan)
+`configs/experiment_config.yaml` **tidak dibaca kode**. Parameter diambil dari argumen CLI `run_batch.py` (`--num_clients`, `--clients_per_round`, `--rounds`, `--seeds`). Namun sebelum re-run dengan N≠10 wajib ada 2 perubahan kecil:
+1. Folder partisi `data/partitions/<ds>/alpha{a}_seed{s}/` tidak memuat N. Menjalankan N=50 akan membuat partisi baru di folder yang sama dan **menimpa `partition_info.json` partisi 10-klien**.
+2. `experiment_id` hasil (`results/<strategy>_<ds>_a<a>_s<s>`) juga tidak memuat N, sehingga `--skip_existing` akan melewati semua eksperimen dan hasil lama bisa tertimpa.
+
+### Saran penulisan/lanjutan (opsional, belum dikerjakan)
+- Tulis keunggulan FairFedCS di CIFAR-10 α≤0.5 sebagai temuan deskriptif, dan dukung dengan uji post-hoc/effect size alih-alih klaim signifikansi.
+- Jika waktu memungkinkan: tambah seed (mis. 5), dan/atau tambah metrik "AUC kurva akurasi" (rata-rata akurasi 20 round) sebagai proxy kecepatan konvergensi, karena A2 di MNIST jenuh di round 1.
+
 ## 2026-09-28 — Verifikasi & perbaikan pipeline analisis end-to-end (setelah full batch 54 eksperimen selesai)
 
 User sudah menjalankan full batch 54 eksperimen baru (hasil di `results/`). Diminta verifikasi kode analisis (`experiments/analyze_results.py`, `notebooks/analysis.ipynb`, dan file terkait) bebas error sebelum dipakai untuk tahap analisis skripsi.

@@ -8,17 +8,15 @@ bandit mechanism from:
     Oort: Efficient Federated Learning via Guided Participant Selection.
     OSDI. https://arxiv.org/pdf/2010.06081
 
-Scope note: Oort's original design also weighs a *system utility* term
-(round duration vs. a device-speed pacer, straggler penalty) to trade off
-statistical efficiency against wall-clock time across heterogeneous devices.
-This experiment runs entirely as a single-machine simulation with no real
-device heterogeneity, and the thesis proposal does not evaluate system
-efficiency at all (only accuracy and fairness under label skew). The system
-utility / pacer component is therefore intentionally omitted; this class
-implements the statistical utility (Eq. 1's U(i) term) and the full
-exploration-exploitation bandit machinery from Algorithm 1 (explored-set
-tracking, temporal-uncertainty staleness bonus, percentile-based robustness
-clipping, cutoff-pool proportional sampling, epsilon decay).
+System utility (optional): when a `device_model` is supplied (simulated
+device heterogeneity, see src/system/device_model.py), the full Eq. 1 is
+used — utility of a client slower than the preferred round duration T is
+multiplied by (T / t_i)^alpha — together with Algorithm 1's pacer, which
+relaxes T by a step Delta whenever the statistical utility collected over
+the last W rounds dropped relative to the W rounds before, and speed-based
+exploration (SampleBySpeed, Line 16). Without a device_model the class
+falls back to statistical utility only (the configuration used for the
+original 54-experiment grid, which had no device heterogeneity).
 
 Author: FL Experiment System
 Date: 2026
@@ -36,6 +34,8 @@ from flwr.common import FitIns, FitRes, Parameters
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+
+from src.strategies.client_ids import build_client_index_map
 
 
 class PerformanceBasedStrategy(FedAvg):
@@ -70,6 +70,18 @@ class PerformanceBasedStrategy(FedAvg):
             exploitation candidate pool (paper default 0.95).
         seed: RNG seed for reproducible bandit sampling.
         logger: Optional logger for structured output.
+        device_model: Optional DeviceModel. Enables system utility, the
+            pacer and speed-based exploration.
+        straggler_penalty: alpha in (T/t_i)^alpha (paper default 2).
+        pacer_window: W, rounds per pacer comparison window (paper: 20 for
+            runs of hundreds of rounds; scale it down for short runs, the
+            pacer only fires once 2W rounds have passed).
+        round_threshold_pct: Initial preferred round duration T, as a
+            percentile of client durations (FedScale Oort default 30).
+        pacer_delta_pct: Delta, percentile points T is relaxed by per pacer
+            step (FedScale Oort default 5).
+        max_participation: Remove a client from exploitation once selected
+            more than this many times (paper: 10). None disables it.
         **kwargs: Forwarded to FedAvg.
     """
 
@@ -85,6 +97,12 @@ class PerformanceBasedStrategy(FedAvg):
         cutoff_confidence: float = 0.95,
         seed: int = 42,
         logger: logging.Logger = None,
+        device_model=None,
+        straggler_penalty: float = 2.0,
+        pacer_window: int = 20,
+        round_threshold_pct: float = 30.0,
+        pacer_delta_pct: float = 5.0,
+        max_participation: Optional[int] = None,
         **kwargs,
     ):
         if not client_num_samples:
@@ -117,6 +135,24 @@ class PerformanceBasedStrategy(FedAvg):
         self.current_round = 0
 
         self._rng = np.random.default_rng(seed)
+
+        # System utility + pacer (only active with a device_model).
+        self.device_model = device_model
+        self.straggler_penalty = straggler_penalty
+        self.pacer_window = pacer_window
+        self.max_participation = max_participation
+        self.round_utility_history: List[float] = []
+        # T is expressed as a percentile of client durations, as in the
+        # authors' FedScale implementation of Oort (round_threshold /
+        # pacer_delta), so Delta scales with the device population.
+        self.round_threshold_pct = round_threshold_pct
+        self.pacer_delta_pct = pacer_delta_pct
+        self.preferred_duration: Optional[float] = None
+        self._client_durations: List[float] = []
+        if device_model is not None:
+            self._client_durations = sorted(
+                device_model.client_duration(c) for c in client_num_samples)
+            self._refresh_preferred_duration()
 
     # ─────────────────────────────────────────────────────────────
     # A. Loss Update (called by server after each fit round)
@@ -190,12 +226,48 @@ class PerformanceBasedStrategy(FedAvg):
         R = max(2, self.current_round)
         return math.sqrt(0.1 * math.log(R) / L)
 
+    def compute_system_penalty(self, client_id: str) -> float:
+        """
+        Global system utility (T / t_i)^alpha if t_i > T, else 1 (Eq. 1).
+        Always 1 when no device_model is configured.
+        """
+        if self.device_model is None or self.preferred_duration is None:
+            return 1.0
+        t_i = self.device_model.client_duration(client_id)
+        if t_i <= self.preferred_duration:
+            return 1.0
+        return (self.preferred_duration / t_i) ** self.straggler_penalty
+
     def compute_client_utility(self, client_id: str) -> float:
-        """Combined utility: statistical utility + temporal uncertainty."""
+        """
+        Combined utility (Algorithm 1, Lines 10-12): statistical utility +
+        temporal uncertainty, times the system-utility straggler penalty.
+        """
         return (
             self.compute_statistical_utility(client_id)
             + self.compute_temporal_uncertainty(client_id)
-        )
+        ) * self.compute_system_penalty(client_id)
+
+    def _refresh_preferred_duration(self) -> None:
+        self.preferred_duration = float(
+            np.percentile(self._client_durations, self.round_threshold_pct))
+
+    def update_pacer(self) -> None:
+        """
+        Pacer (Algorithm 1, Lines 7-8): if the statistical utility gathered
+        over the last W rounds is lower than over the W rounds before,
+        relax the preferred round duration T <- T + Delta (here: raise the
+        duration percentile by pacer_delta_pct, capped at 100).
+        """
+        if self.device_model is None:
+            return
+        W = self.pacer_window
+        hist = self.round_utility_history
+        if len(hist) < 2 * W or len(hist) % W != 0:
+            return
+        if sum(hist[-2 * W:-W]) > sum(hist[-W:]):
+            self.round_threshold_pct = min(100.0, self.round_threshold_pct + self.pacer_delta_pct)
+            self._refresh_preferred_duration()
 
     # ─────────────────────────────────────────────────────────────
     # D. Exploitation: cutoff pool + proportional sampling
@@ -246,9 +318,8 @@ class PerformanceBasedStrategy(FedAvg):
     def _select_exploration(self, unexplored_candidates: List[str], k: int) -> List[str]:
         """
         Sample k clients uniformly at random from those never selected
-        before (Algorithm 1, Line 16 — without the speed-based prioritization
-        that depended on the omitted system-utility model; see module
-        docstring).
+        before (Algorithm 1, Line 16). With a device_model, sampling is
+        weighted by device speed (SampleBySpeed); otherwise uniform.
 
         Args:
             unexplored_candidates: Client indices never selected before.
@@ -260,7 +331,14 @@ class PerformanceBasedStrategy(FedAvg):
         if k <= 0 or not unexplored_candidates:
             return []
         k = min(k, len(unexplored_candidates))
-        chosen = self._rng.choice(unexplored_candidates, size=k, replace=False)
+        if self.device_model is not None:
+            # SampleBySpeed: prefer faster (shorter-duration) devices.
+            speeds = np.array([1.0 / self.device_model.client_duration(c)
+                               for c in unexplored_candidates])
+            chosen = self._rng.choice(unexplored_candidates, size=k, replace=False,
+                                      p=speeds / speeds.sum())
+        else:
+            chosen = self._rng.choice(unexplored_candidates, size=k, replace=False)
         return chosen.tolist()
 
     # ─────────────────────────────────────────────────────────────
@@ -299,8 +377,7 @@ class PerformanceBasedStrategy(FedAvg):
         if not available_cids:
             return []
 
-        sorted_raw_cids = sorted(available_cids)
-        raw_to_index = {raw: str(i) for i, raw in enumerate(sorted_raw_cids)}
+        raw_to_index = build_client_index_map(available)
         index_to_raw = {v: k for k, v in raw_to_index.items()}
         all_indices = list(raw_to_index.values())
         self._raw_to_index = raw_to_index
@@ -310,7 +387,11 @@ class PerformanceBasedStrategy(FedAvg):
         explore_k = int(round(K * eps))
         exploit_k = K - explore_k
 
-        explored_indices = [i for i in all_indices if i in self.explored]
+        self.update_pacer()
+
+        explored_indices = [i for i in all_indices if i in self.explored
+                            and (self.max_participation is None
+                                 or self.participation_count[i] <= self.max_participation)]
         unexplored_indices = [i for i in all_indices if i not in self.explored]
 
         # Exploitation first; if not enough explored clients exist yet
@@ -376,11 +457,14 @@ class PerformanceBasedStrategy(FedAvg):
         utility bookkeeping must happen here instead, where `results`
         carries the real ClientProxy for each report.
         """
+        round_utility = 0.0
         for client_proxy, fit_res in results:
             cid_index = self._raw_to_index.get(client_proxy.cid, client_proxy.cid)
             loss_rms = fit_res.metrics.get("loss_rms")
             if loss_rms is not None:
                 self.update_client_utility(cid_index, float(loss_rms))
+                round_utility += self.client_num_samples.get(cid_index, 1) * float(loss_rms)
+        self.round_utility_history.append(round_utility)
 
         return super().aggregate_fit(server_round, results, failures)
 
@@ -402,6 +486,8 @@ class PerformanceBasedStrategy(FedAvg):
             f"Exploration ε={self.exploration_factor:.4f} | "
             f"Explored={len(self.explored)}/{len(all_indices)}"
         )
+        if self.preferred_duration is not None:
+            header += f" | T={self.preferred_duration:.1f}s"
 
         rows = []
         for idx in sorted(all_indices, key=lambda x: int(x)):
@@ -445,6 +531,8 @@ class PerformanceBasedStrategy(FedAvg):
             "participation_count": dict(self.participation_count),
             "exploration_factor": self.exploration_factor,
             "current_round": self.current_round,
+            "round_utility_history": list(self.round_utility_history),
+            "round_threshold_pct": self.round_threshold_pct,
         }
 
     def load_state(self, state: Dict):
@@ -455,3 +543,7 @@ class PerformanceBasedStrategy(FedAvg):
         self.participation_count = defaultdict(int, state.get("participation_count", {}))
         self.exploration_factor = state.get("exploration_factor", 0.9)
         self.current_round = state.get("current_round", 0)
+        self.round_utility_history = list(state.get("round_utility_history", []))
+        self.round_threshold_pct = state.get("round_threshold_pct", self.round_threshold_pct)
+        if self.device_model is not None:
+            self._refresh_preferred_duration()

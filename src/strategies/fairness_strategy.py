@@ -44,6 +44,8 @@ from flwr.common import (
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
+
+from src.strategies.client_ids import build_client_index_map
 from flwr.server.strategy.aggregate import aggregate as fedavg_aggregate
 
 
@@ -161,8 +163,7 @@ class FairnessAwareStrategy(FedAvg):
         if not available_cids:
             return []
 
-        sorted_raw = sorted(available_cids)
-        raw_to_index = {raw: str(i) for i, raw in enumerate(sorted_raw)}
+        raw_to_index = build_client_index_map(available)
         index_to_raw = {v: k for k, v in raw_to_index.items()}
         all_indices = list(raw_to_index.values())
         self._raw_to_index = raw_to_index

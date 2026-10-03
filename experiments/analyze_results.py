@@ -32,7 +32,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pandas as pd
 
-from src.metrics.evaluator import run_two_way_anova, HAS_SCIPY
+from src.metrics.evaluator import (
+    compute_accuracy_variance,
+    compute_gini_coefficient,
+    run_two_way_anova,
+    HAS_SCIPY,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +47,28 @@ DEPENDENT_VARS = [
     "B1_accuracy_variance",
     "B2_gini_coefficient",
     "B3_participation_fairness",
+]
+
+# Robust variants derived from metrics_per_round.json. The single-snapshot
+# B1/B2 above are read from the final round only, which swings a lot round
+# to round under heavy label skew; these average over the last K rounds.
+# A_auc is mean global accuracy across all rounds — a convergence-speed
+# proxy that still discriminates where A2 saturates (round 1) or is NaN.
+LAST_K_ROUNDS = 5
+ROBUST_VARS = [
+    "A_auc_accuracy",
+    "A1_lastK_accuracy",
+    "B1_lastK_accuracy_std",
+    "B2_lastK_gini",
+]
+
+# Only present for runs with simulated device heterogeneity
+# (run_single.py --system_hetero, results_system/). A2_time_to_target is
+# NaN for runs that never reach the target, so it is summarized but not
+# fed to ANOVA; total simulated time always exists.
+SYSTEM_VARS = [
+    "sim_total_time_seconds",
+    "A2_time_to_target_seconds",
 ]
 
 
@@ -68,6 +95,10 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
             continue
         with open(metrics_path) as f:
             metrics = json.load(f)
+        per_round_path = exp_dir / "metrics_per_round.json"
+        if per_round_path.exists():
+            with open(per_round_path) as f:
+                metrics.update(compute_robust_metrics(json.load(f)))
         rows.append(metrics)
 
     if not rows:
@@ -81,6 +112,33 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
     return df
 
 
+def compute_robust_metrics(round_results: List[Dict], k: int = LAST_K_ROUNDS) -> Dict:
+    """
+    Derive round-averaged metrics from one run's metrics_per_round.json.
+
+    Args:
+        round_results: Per-round dicts with "round", "global_accuracy" and
+            "per_client_accuracies". Round 0 (initial model) is ignored.
+        k: Number of final rounds to average B1/B2/accuracy over.
+
+    Returns:
+        Dict with the ROBUST_VARS keys (empty if no usable rounds).
+    """
+    rounds = [r for r in round_results
+              if r.get("round", 0) > 0 and r.get("per_client_accuracies")]
+    if not rounds:
+        return {}
+    last = rounds[-k:]
+    return {
+        "A_auc_accuracy": sum(r["global_accuracy"] for r in rounds) / len(rounds),
+        "A1_lastK_accuracy": sum(r["global_accuracy"] for r in last) / len(last),
+        "B1_lastK_accuracy_std": sum(compute_accuracy_variance(r["per_client_accuracies"])
+                                     for r in last) / len(last),
+        "B2_lastK_gini": sum(compute_gini_coefficient(r["per_client_accuracies"])
+                             for r in last) / len(last),
+    }
+
+
 # ─── Summary table (mean +- std per dataset x strategy x alpha) ───────────
 
 def build_summary_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -90,7 +148,8 @@ def build_summary_table(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with one row per (dataset, strategy, alpha) combination.
     """
-    agg_cols = ["A1_global_accuracy", "A2_rounds_to_target"] + DEPENDENT_VARS[1:]
+    agg_cols = (["A1_global_accuracy", "A2_rounds_to_target"] + DEPENDENT_VARS[1:]
+                + ROBUST_VARS + SYSTEM_VARS)
     grouped = df.groupby(["dataset", "strategy", "alpha"])
 
     summary_rows = []
@@ -109,7 +168,11 @@ def build_summary_table(df: pd.DataFrame) -> pd.DataFrame:
 
 # ─── C1: Pareto frontier ───────────────────────────────────────────────────
 
-def build_pareto_frontier(summary_df: pd.DataFrame) -> pd.DataFrame:
+def build_pareto_frontier(
+    summary_df: pd.DataFrame,
+    acc_col: str = "A1_global_accuracy_mean",
+    gini_col: str = "B2_gini_coefficient_mean",
+) -> pd.DataFrame:
     """
     Mark Pareto-optimal strategies per (dataset, alpha) combination, using
     mean global accuracy (higher better) vs. mean Gini coefficient (lower
@@ -127,6 +190,12 @@ def build_pareto_frontier(summary_df: pd.DataFrame) -> pd.DataFrame:
     alpha) has both >= accuracy AND <= Gini, with at least one strictly
     better.
 
+    Args:
+        summary_df: Output of build_summary_table().
+        acc_col / gini_col: Summary columns used as the two axes (defaults
+            are the final-round snapshot metrics; pass the *_lastK_* means
+            for the round-averaged robust frontier).
+
     Returns:
         DataFrame (one row per dataset x strategy x alpha) with a
         `pareto_optimal` boolean column.
@@ -136,11 +205,11 @@ def build_pareto_frontier(summary_df: pd.DataFrame) -> pd.DataFrame:
         group = group.reset_index(drop=True)
         flags = []
         for i, row in group.iterrows():
-            acc_i = row["A1_global_accuracy_mean"]
-            gini_i = row["B2_gini_coefficient_mean"]
+            acc_i = row[acc_col]
+            gini_i = row[gini_col]
             dominated = any(
-                (other["A1_global_accuracy_mean"] >= acc_i and other["B2_gini_coefficient_mean"] <= gini_i and
-                 (other["A1_global_accuracy_mean"] > acc_i or other["B2_gini_coefficient_mean"] < gini_i))
+                (other[acc_col] >= acc_i and other[gini_col] <= gini_i and
+                 (other[acc_col] > acc_i or other[gini_col] < gini_i))
                 for j, other in group.iterrows() if j != i
             )
             flags.append(not dominated)
@@ -167,7 +236,7 @@ def run_all_anovas(df: pd.DataFrame) -> Dict[str, Dict]:
     results: Dict[str, Dict] = {}
     for dataset, group in df.groupby("dataset"):
         results[dataset] = {}
-        for dep_var in DEPENDENT_VARS:
+        for dep_var in DEPENDENT_VARS + ROBUST_VARS + ["sim_total_time_seconds"]:
             if dep_var not in group.columns:
                 continue
             try:
@@ -234,6 +303,15 @@ def main():
     pareto_df.to_csv(pareto_path, index=False)
     print(f"  Saved Pareto frontier data (C1) -> {pareto_path}")
 
+    # C1 (robust): same frontier on last-K-round averaged accuracy / Gini.
+    robust_ok = all(f"{c}_mean" in summary_df for c in ("A1_lastK_accuracy", "B2_lastK_gini"))
+    if robust_ok:
+        pareto_robust_df = build_pareto_frontier(
+            summary_df, acc_col="A1_lastK_accuracy_mean", gini_col="B2_lastK_gini_mean")
+        pareto_robust_df.to_csv(out_dir / "pareto_data_robust.csv", index=False)
+        print(f"  Saved robust Pareto data (last {LAST_K_ROUNDS} rounds) -> "
+              f"{out_dir / 'pareto_data_robust.csv'}")
+
     # C2: two-way ANOVA.
     try:
         anova_results = run_all_anovas(df)
@@ -250,10 +328,19 @@ def main():
     threshold_df.to_csv(threshold_path, index=False)
     print(f"  Saved fairness-threshold summary -> {threshold_path}")
 
+    if robust_ok:
+        threshold_robust_df = summarize_fairness_threshold(pareto_robust_df)
+        threshold_robust_df.to_csv(out_dir / "fairness_threshold_summary_robust.csv", index=False)
+
     print("\n" + "-" * 70)
     print("  Pareto-optimal strategy per (dataset, alpha):")
     print("-" * 70)
     print(threshold_df.to_string(index=False))
+    if robust_ok:
+        print("-" * 70)
+        print(f"  Robust (last {LAST_K_ROUNDS} rounds averaged):")
+        print("-" * 70)
+        print(threshold_robust_df.to_string(index=False))
     print("=" * 70 + "\n")
 
 

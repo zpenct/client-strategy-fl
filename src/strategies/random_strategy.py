@@ -19,6 +19,8 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 from collections import defaultdict 
 
+from src.strategies.client_ids import build_client_index_map
+
 
 class RandomStrategy(FedAvg):
     """
@@ -58,10 +60,9 @@ class RandomStrategy(FedAvg):
         """
         Select clients randomly (default FedAvg behavior) and log selection.
 
-        Note: Logging maps raw ClientProxy.cid values (which may be
-        UUID-like node identifiers in newer Flower versions) to stable,
-        human-readable indices ("0","1","2"...) based on sorted order,
-        purely for readability. Selection itself is unaffected.
+        Note: Logging maps raw ClientProxy.cid values (random node ids in
+        Flower's simulation engine) to the client's data-partition index
+        (see client_ids.py). Selection itself is unaffected.
 
         Args:
             server_round: Current communication round (1-indexed).
@@ -73,11 +74,10 @@ class RandomStrategy(FedAvg):
         """
         self._round_num = server_round
 
-        # Build a stable raw_cid -> index map from all currently available
-        # clients, for readable logging only (does not affect selection).
+        # Map raw cid -> partition index for logging/participation counts
+        # only (does not affect selection).
         available = client_manager.all()
-        sorted_raw_cids = sorted(available.keys())
-        raw_to_index = {raw: str(i) for i, raw in enumerate(sorted_raw_cids)}
+        raw_to_index = build_client_index_map(available)
 
         # Use parent's random selection
         client_instructions = super().configure_fit(

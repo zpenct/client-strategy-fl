@@ -50,10 +50,18 @@ from src.strategies.performance_strategy import PerformanceBasedStrategy
 from src.strategies.fairness_strategy import FairnessAwareStrategy
 from src.data.partitioner import load_partition_info
 from src.metrics.evaluator import compute_all_metrics, compute_global_accuracy
+from src.system.device_model import DeviceModel
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_ROOT / "results"
+# Runs with simulated device heterogeneity go to a separate tree so they
+# never mix with (or get skipped because of) the homogeneous results/ grid.
+RESULTS_SYSTEM_DIR = PROJECT_ROOT / "results_system"
+
+# Oort pacer window W for our 20-round runs. The paper's W=20 assumes
+# hundreds of rounds; the pacer needs 2W rounds before it can fire.
+OORT_PACER_WINDOW = 5
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -84,6 +92,7 @@ def build_strategy(
     logger,
     client_num_samples: Dict[str, int] = None,
     eval_fn_for_fairness=None,
+    device_model: Optional[DeviceModel] = None,
 ) -> FedAvg:
     """
     Instantiate and return the requested Flower strategy.
@@ -100,6 +109,9 @@ def build_strategy(
             "fairness" (FairFedCS's Shapley Value contribution assessment).
             Must evaluate on a scratch model separate from the main global
             model (see make_shapley_eval_fn()).
+        device_model: Optional simulated device heterogeneity. Only Oort
+            uses it (system utility + pacer + speed-based exploration);
+            random and FairFedCS selection are speed-agnostic by design.
 
     Returns:
         Configured FedAvg subclass.
@@ -122,6 +134,8 @@ def build_strategy(
             clients_per_round=clients_per_round,
             seed=seed,
             logger=logger,
+            device_model=device_model,
+            pacer_window=OORT_PACER_WINDOW,
             **common_kwargs,
         )
 
@@ -273,6 +287,7 @@ def run_experiment(
     output_dir: Path = None,
     trace: bool = False,
     logger=None,
+    system_hetero: bool = False,
 ) -> Dict:
     """
     Run a single FL experiment end-to-end.
@@ -290,6 +305,10 @@ def run_experiment(
         output_dir: Where to save results.
         trace: Enable tensor/shape tracing.
         logger: Logger instance.
+        system_hetero: Simulate device heterogeneity (per-client compute
+            speed / bandwidth). Enables Oort's system utility and records
+            simulated wall-clock time for every strategy. Output dir
+            defaults to results_system/.
 
     Returns:
         Dict of final metrics.
@@ -297,7 +316,7 @@ def run_experiment(
     # ── Setup ─────────────────────────────────────────────────────────────
     experiment_id = f"{strategy_name}_{dataset_name}_a{alpha}_s{seed}"
     if output_dir is None:
-        output_dir = RESULTS_DIR
+        output_dir = RESULTS_SYSTEM_DIR if system_hetero else RESULTS_DIR
     exp_dir = Path(output_dir) / experiment_id
     exp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -319,6 +338,7 @@ def run_experiment(
         "learning_rate": learning_rate,
         "device": str(device),
         "trace_mode": trace,
+        "system_hetero": system_hetero,
     }
 
     if logger:
@@ -361,6 +381,20 @@ def run_experiment(
         for i in range(num_clients):
             client_num_samples[str(i)] = per_client
 
+    # ── Simulated device heterogeneity ─────────────────────────────────────
+    device_model = None
+    if system_hetero:
+        model_size_mb = sum(p.numel() * p.element_size()
+                            for p in global_model.parameters()) / 1e6
+        device_model = DeviceModel(
+            client_num_samples=client_num_samples,
+            local_epochs=local_epochs,
+            model_size_mb=model_size_mb,
+            seed=seed,
+        )
+        with open(exp_dir / "device_profiles.json", "w") as f:
+            json.dump(device_model.to_dict(), f, indent=2)
+
     # ── Strategy ──────────────────────────────────────────────────────────
     eval_fn_for_fairness = None
     if strategy_name == "fairness":
@@ -370,6 +404,7 @@ def run_experiment(
         strategy_name, num_clients, clients_per_round, seed, logger,
         client_num_samples=client_num_samples,
         eval_fn_for_fairness=eval_fn_for_fairness,
+        device_model=device_model,
     )
     if hasattr(strategy, "set_experiment_id"):
         strategy.set_experiment_id(experiment_id)
@@ -437,7 +472,12 @@ def run_experiment(
         "total_time_seconds": round(t_total, 2),
         "global_accuracy": final_metrics["A1_global_accuracy"],
         "gini_coefficient": final_metrics["B2_gini_coefficient"],
+        "system_hetero": system_hetero,
     })
+    if device_model is not None:
+        final_metrics.update(compute_simulated_time_metrics(
+            participation_log, device_model,
+            final_metrics["accuracy_history"], final_metrics["target_accuracy"]))
 
     # ── Save results ──────────────────────────────────────────────────────
     with open(exp_dir / "final_metrics.json", "w") as f:
@@ -458,6 +498,46 @@ def run_experiment(
     return final_metrics
 
 
+def compute_simulated_time_metrics(
+    participation_log: List[Dict],
+    device_model: DeviceModel,
+    accuracy_history: List[float],
+    target_accuracy: float,
+) -> Dict:
+    """
+    Simulated wall-clock metrics under device heterogeneity.
+
+    The clients selected in round r are recovered from the cumulative
+    participation counts (round r minus round r-1). A synchronous round
+    lasts as long as its slowest selected client.
+
+    Returns:
+        Dict with per-round and cumulative simulated seconds, total
+        simulated time, and A2_time_to_target_seconds (simulated seconds
+        until global accuracy first reaches the target; None if never).
+    """
+    round_durations: List[float] = []
+    prev: Dict[str, int] = {}
+    for counts in participation_log:
+        selected = [cid for cid, c in counts.items() if c > prev.get(cid, 0)]
+        round_durations.append(device_model.round_duration(selected))
+        prev = counts
+
+    cumulative = [float(t) for t in np.cumsum(round_durations)]
+    time_to_target = None
+    for r, acc in enumerate(accuracy_history):
+        if acc >= target_accuracy and r < len(cumulative):
+            time_to_target = cumulative[r]
+            break
+
+    return {
+        "sim_round_durations": [float(d) for d in round_durations],
+        "sim_cumulative_time": cumulative,
+        "sim_total_time_seconds": cumulative[-1] if cumulative else 0.0,
+        "A2_time_to_target_seconds": time_to_target,
+    }
+
+
 def _print_summary(experiment_id: str, metrics: Dict, elapsed: float):
     """Print a clean summary table at the end of an experiment."""
     m, s = divmod(int(elapsed), 60)
@@ -472,6 +552,9 @@ def _print_summary(experiment_id: str, metrics: Dict, elapsed: float):
         f"  B2  Gini Coefficient    : {metrics.get('B2_gini_coefficient', 0):.6f}",
         f"  B3  Participation Fair. : {metrics.get('B3_participation_fairness', 0):.6f}",
         f"  Target reached          : {metrics.get('target_reached', False)}",
+        *([f"  Sim. time-to-target     : {metrics.get('A2_time_to_target_seconds')}",
+           f"  Sim. total time         : {metrics['sim_total_time_seconds']:.1f}s"]
+          if "sim_total_time_seconds" in metrics else []),
         f"  Total time              : {m}m {s}s",
         "=" * 62,
         "",
@@ -536,6 +619,9 @@ def main():
                         help="Results output directory (default: results/)")
     parser.add_argument("--trace", action="store_true",
                         help="Enable tensor/shape tracer (verbose)")
+    parser.add_argument("--system_hetero", action="store_true",
+                        help="Simulate device heterogeneity (Oort system utility "
+                             "+ simulated wall-clock). Results go to results_system/")
     parser.add_argument("--smoke_test", action="store_true",
                         help="Run 1-round smoke test instead of full experiment")
 
@@ -567,6 +653,7 @@ def main():
             output_dir=Path(args.output_dir) if args.output_dir else None,
             trace=args.trace,
             logger=logger,
+            system_hetero=args.system_hetero,
         )
         sys.exit(0)
 
