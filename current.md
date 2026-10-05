@@ -6,7 +6,88 @@
 - setiap ada pembaruan penting tolong berikan updatenya di file ini
 
 
+# Tutorial: Up-scaling eksperimen (N=50 klien) — partisi → run → analisis
+
+> Ditulis 2026-10-05. Kode untuk skala N≠10 sudah siap (lihat Refactor Log 2026-10-05 di bawah). Data & hasil 10 klien **tidak tersentuh**: semua artefak N=50 memakai akhiran `_n50`.
+
+**Konfigurasi yang disarankan:** 50 klien, 5 per round (10%), 100 round, 3 local epoch, seed 42/123/456/789/1024, α 0.1/0.5/1.0. Dengan 100 round, tiap klien rata-rata dipilih 10×, sama dengan grid 10 klien × 20 round. Exact Shapley tetap dipakai (m=5 → 32 evaluasi/round).
+
+Semua perintah dijalankan dari root project, dengan venv aktif (`source venv/bin/activate`).
+
+### Step 0 — Persiapan (sekali saja)
+1. Tarik kode terbaru ke komputer lab (`git pull`). Pastikan file-file ini ada: `src/strategies/client_ids.py`, `src/system/device_model.py`, dan argumen `num_clients` di `src/data/partitioner.py::_get_partition_dir`.
+2. **Cek ruang disk.** Satu partisi = ±590 MB (CIFAR-10) / ±190 MB (MNIST), untuk N berapa pun (total data sama, hanya dibagi lebih banyak file). 5 seed × 3 α × 2 dataset ≈ **12 GB**. Hanya CIFAR-10 ≈ **9 GB**. Cek dengan `df -h .`. Laptop ini tinggal ±3 GB kosong, jadi **jalankan di komputer lab**.
+3. Jalankan test: `python -m pytest tests -q` (harus 47 passed).
+
+### Step 1 — Generate partisi 50 klien
+```bash
+python experiments/prepare_data.py --num_clients 50 \
+    --datasets cifar10 mnist --seeds 42 123 456 789 1024
+```
+- Hasil: `data/partitions/<dataset>/alpha01_seed42_n50/` dst (`client_0.pt` … `client_49.pt` + `partition_info.json`). Folder lama tanpa `_n50` tetap utuh.
+- ±20 detik per partisi (30 partisi ≈ 10 menit).
+- Catatan α=0.1: beberapa klien hanya dapat sangat sedikit data (uji coba CIFAR-10 α=0.1 seed 42: klien terkecil 2 sampel). Ini konsekuensi wajar Dirichlet dengan N besar; tulis di Batasan Penelitian. Tidak ada klien dengan 0 sampel di 5 seed yang disarankan (sudah disimulasikan).
+- Cek ulang tanpa generate: tambahkan `--verify_only`.
+
+### Step 2 — Validasi sebelum batch
+```bash
+python experiments/validate.py --datasets cifar10 mnist \
+    --num_clients 50 --clients_per_round 5 --seeds 42 123 456 789 1024
+```
+Level 4 menjalankan 1 round × 3 strategi pada N=50 (hasil di `results/_validation/`, boleh dihapus). Semua harus PASS. Untuk cek cepat tanpa pipeline, tambahkan `--skip_pipeline`.
+
+### Step 3 — Jalankan eksperimen
+**3a. Tanpa heterogenitas perangkat** (pembanding langsung dengan grid 10 klien):
+```bash
+python experiments/run_batch.py --num_clients 50 --clients_per_round 5 --rounds 100 \
+    --seeds 42 123 456 789 1024 --skip_existing
+```
+→ hasil di `results/<strategy>_<dataset>_a<α>_s<seed>_n50/`
+
+**3b. Dengan heterogenitas perangkat:**
+```bash
+python experiments/run_batch.py --num_clients 50 --clients_per_round 5 --rounds 100 \
+    --seeds 42 123 456 789 1024 --system_hetero --skip_existing
+```
+→ hasil di `results_system/..._n50/`
+
+Tips:
+- Total 90 eksperimen per mode (3 strategi × 2 dataset × 3 α × 5 seed). Bisa dicicil per strategi/dataset dengan `--strategies fairness --datasets cifar10`, dst. Kalau terputus, jalankan ulang perintah yang sama; `--skip_existing` melewati yang sudah selesai.
+- Cek daftar dulu tanpa menjalankan: tambahkan `--dry_run`.
+- Estimasi waktu nyata kasar (CPU, dari grid lama ×5 karena round 5×): Random ±25–40 mnt, Oort ±35–50 mnt, FairFedCS ±2,5–3 jam per eksperimen. FairFedCS paling dominan, jadi jalankan semalaman. Ukur dari 1–2 eksperimen pertama lalu sesuaikan.
+- Pacer Oort tetap W=5 round (`OORT_PACER_WINDOW` di `run_single.py`). Dengan 100 round, nilai W=20 sesuai paper juga masuk akal; kalau mau diganti, putuskan **sebelum** batch dijalankan dan catat di metodologi.
+
+### Step 4 — Analisis lintas eksperimen
+```bash
+python experiments/analyze_results.py --results_dir results        --num_clients 50
+python experiments/analyze_results.py --results_dir results_system --num_clients 50
+```
+Output: `results/analysis_n50/` dan `results_system/analysis_n50/` (summary, Pareto, ANOVA, threshold; versi heterogen juga berisi metrik waktu simulasi). `--num_clients` **wajib**, karena folder `results/` berisi campuran 10 dan 50 klien; tanpa flag ini script akan berhenti dengan pesan error, bukan diam-diam mencampur.
+
+### Step 5 — Notebook
+Notebook (`notebooks/analysis.ipynb`) **belum** mendukung N=50. Cell load masih mencari nama folder tanpa `_n50`, seed masih 3, dan plot partisi masih 10 kolom klien. Ini akan disesuaikan setelah hasil N=50 ada.
+
+### Ringkasan lokasi artefak
+| | 10 klien (lama) | 50 klien (baru) |
+|---|---|---|
+| Partisi | `data/partitions/<ds>/alpha01_seed42/` | `data/partitions/<ds>/alpha01_seed42_n50/` |
+| Hasil homogen | `results/random_cifar10_a0.1_s42/` | `results/random_cifar10_a0.1_s42_n50/` |
+| Hasil heterogen | `results_system/random_cifar10_a0.1_s42/` | `results_system/random_cifar10_a0.1_s42_n50/` |
+| Analisis | `results*/analysis/` | `results*/analysis_n50/` |
+
+
 # Refactor Log:
+
+## 2026-10-05 — Dukungan skala N≠10 (persiapan up-scaling)
+
+- `src/data/partitioner.py`: `_get_partition_dir`, `check_partition_exists`, `create_dirichlet_partition`, `load_partition_info` menerima `num_clients`. Untuk N=10 nama folder **tetap sama** (`alpha01_seed42`). Untuk N lain diberi akhiran `_n<N>`. **Logika partisi Dirichlet tidak diubah sama sekali.** Diverifikasi: algoritma yang sama mereproduksi persis jumlah sampel partisi 10-klien yang tersimpan.
+- `src/data/loader.py`, `src/client/fl_client.py`: meneruskan `num_clients` agar klien memuat folder partisi yang benar.
+- `experiments/run_single.py`: helper `make_experiment_id()`, dengan akhiran `_n<N>` untuk N≠10. `final_metrics.json` kini mencatat `num_clients`, `clients_per_round`, `num_rounds`.
+- `experiments/run_batch.py`: memakai `make_experiment_id`, jadi `--skip_existing` mengenali hasil per skala.
+- `experiments/validate.py`: argumen `--num_clients`, `--clients_per_round`, `--seeds`.
+- `experiments/analyze_results.py`: argumen `--num_clients`, menolak mencampur skala berbeda, output default `analysis_n<N>/`.
+- Verifikasi: 47/47 test pass, `validate.py --skip_pipeline` (N=10) pass, `analyze_results.py` pada grid 10 klien tetap jalan. Uji coba partisi N=50 (CIFAR-10 α=0.1 seed 42) berhasil, dan partisi 10 klien di folder lama tidak berubah. Smoke test run 50 klien **terputus di tengah** karena sesi berakhir dan disk laptop hampir penuh (Ray memperingatkan >95% terpakai), jadi **belum terverifikasi**. Jalankan Step 2 (`validate.py` Level 4) di komputer lab sebelum batch.
+- Partisi uji `data/partitions/cifar10/alpha01_seed42_n50/` (587 MB) masih ada di laptop; aman dihapus atau dipakai ulang.
 
 ## 2026-10-05 — Notebook disesuaikan untuk hasil heterogenitas perangkat (`results_system/`)
 
