@@ -8,6 +8,17 @@
 
 # Refactor Log:
 
+## 2026-10-05 — Notebook disesuaikan untuk hasil heterogenitas perangkat (`results_system/`)
+
+User sudah menjalankan 54 eksperimen `--system_hetero` di komputer lab, plus `analyze_results.py`.
+
+Perubahan `notebooks/analysis.ipynb`:
+- Cell setup: saklar **`RESULTS_SUBDIR`** (`'results'` / `'results_system'`). Figure & CSV ditulis ke `notebooks/figures/<RESULTS_SUBDIR>/`, jadi kedua set hasil tidak saling menimpa. (Figure lama di `notebooks/figures/*.png` dibiarkan; versi barunya ada di `figures/results/`.)
+- Cell load: membaca `sim_total_time_seconds`, `A2_time_to_target_seconds`, `sim_cumulative_time`, `system_hetero`.
+- Section **11 baru** (otomatis dilewati untuk `results/`): 11A tabel time-to-target & total waktu simulasi (+ `summary_sim_time.csv`), 11B kurva time-to-accuracy (akurasi vs waktu simulasi kumulatif), 11C rata-rata durasi round + ANOVA total waktu simulasi.
+
+Verifikasi: notebook dieksekusi headless dua kali, **0 error** di kedua mode: (1) `results/` asli, (2) fixture `results_system/` tiruan, yaitu metrik waktu yang dihitung ulang dari participation log lama + device model. Fixture hanya untuk uji kode; angkanya bukan hasil eksperimen. Notebook yang disimpan adalah hasil eksekusi mode `results/`.
+
 ## 2026-10-03 — Opsi C: heterogenitas perangkat tersimulasi + Oort system utility (kode siap, batch BELUM dijalankan)
 
 Setelah bimbingan: opsi A (sudah selesai 2026-09-29) dan C dikerjakan, opsi B (N=50) ditunda.
