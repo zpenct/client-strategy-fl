@@ -114,13 +114,13 @@ def check_imports():
 
 # ─── Level 3: Data validation ────────────────────────────────────────────────
 
-def check_data(datasets=("mnist",)):
-    section("LEVEL 3: Data Partition Validation")
+def check_data(datasets=("mnist",), num_clients=10, seeds=(42, 123, 456)):
+    section(f"LEVEL 3: Data Partition Validation (N={num_clients})")
     from src.data.partitioner import check_partition_exists
 
     ALPHAS = [0.1, 0.5, 1.0]
-    SEEDS = [42, 123, 456]
-    NUM_CLIENTS = 10
+    SEEDS = list(seeds)
+    NUM_CLIENTS = num_clients
 
     all_ok = True
 
@@ -140,7 +140,7 @@ def check_data(datasets=("mnist",)):
                 try:
                     import torch
                     from src.data.partitioner import _get_partition_dir
-                    part_dir = _get_partition_dir(dataset, alpha, seed)
+                    part_dir = _get_partition_dir(dataset, alpha, seed, NUM_CLIENTS)
 
                     total_samples = 0
                     for i in range(NUM_CLIENTS):
@@ -189,7 +189,7 @@ def check_data(datasets=("mnist",)):
 
 # ─── Level 4: Pipeline smoke test ────────────────────────────────────────────
 
-def check_pipeline(datasets=("mnist",)):
+def check_pipeline(datasets=("mnist",), num_clients=10, clients_per_round=5):
     section("LEVEL 4: Pipeline Smoke Test (1 round per strategy)")
     import torch
     from experiments.run_single import run_experiment
@@ -202,8 +202,8 @@ def check_pipeline(datasets=("mnist",)):
         alpha=0.5,
         seed=42,
         num_rounds=1,
-        num_clients=10,
-        clients_per_round=5,
+        num_clients=num_clients,
+        clients_per_round=clients_per_round,
         local_epochs=1,   # 1 epoch saja untuk speed
         learning_rate=0.01,
         trace=False,
@@ -324,6 +324,18 @@ def main():
         "--skip_pipeline", action="store_true",
         help="Skip Level 4 pipeline smoke test (faster, but less thorough)"
     )
+    parser.add_argument(
+        "--num_clients", type=int, default=10,
+        help="Client count of the partitions/pipeline to validate (default: 10)"
+    )
+    parser.add_argument(
+        "--clients_per_round", type=int, default=5,
+        help="Clients per round for the pipeline smoke test (default: 5)"
+    )
+    parser.add_argument(
+        "--seeds", nargs="+", type=int, default=[42, 123, 456],
+        help="Partition seeds to validate (default: 42 123 456)"
+    )
     args = parser.parse_args()
 
     print("\n" + "="*60)
@@ -336,10 +348,10 @@ def main():
 
     ok1 = check_syntax()
     ok2 = check_imports()
-    ok3 = check_data(args.datasets)
+    ok3 = check_data(args.datasets, args.num_clients, args.seeds)
 
     if not args.skip_pipeline:
-        ok4 = check_pipeline(args.datasets)
+        ok4 = check_pipeline(args.datasets, args.num_clients, args.clients_per_round)
     else:
         ok4 = True
 

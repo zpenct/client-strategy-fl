@@ -59,6 +59,23 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 # never mix with (or get skipped because of) the homogeneous results/ grid.
 RESULTS_SYSTEM_DIR = PROJECT_ROOT / "results_system"
 
+# Client count of the original grid; experiment ids / partition folders
+# for this N keep their original names (no "_n10" suffix).
+DEFAULT_NUM_CLIENTS = 10
+
+
+def make_experiment_id(strategy: str, dataset: str, alpha: float, seed: int,
+                       num_clients: int = DEFAULT_NUM_CLIENTS) -> str:
+    """
+    Result-folder name for one run. Runs with N != 10 get an "_n<N>"
+    suffix so scaled-up grids never collide with the original results.
+    """
+    exp_id = f"{strategy}_{dataset}_a{alpha}_s{seed}"
+    if num_clients != DEFAULT_NUM_CLIENTS:
+        exp_id += f"_n{num_clients}"
+    return exp_id
+
+
 # Oort pacer window W for our 20-round runs. The paper's W=20 assumes
 # hundreds of rounds; the pacer needs 2W rounds before it can fire.
 OORT_PACER_WINDOW = 5
@@ -314,7 +331,7 @@ def run_experiment(
         Dict of final metrics.
     """
     # ── Setup ─────────────────────────────────────────────────────────────
-    experiment_id = f"{strategy_name}_{dataset_name}_a{alpha}_s{seed}"
+    experiment_id = make_experiment_id(strategy_name, dataset_name, alpha, seed, num_clients)
     if output_dir is None:
         output_dir = RESULTS_SYSTEM_DIR if system_hetero else RESULTS_DIR
     exp_dir = Path(output_dir) / experiment_id
@@ -369,7 +386,7 @@ def run_experiment(
     # ── Load client metadata (for Oort utility computation) ────────────────
     client_num_samples: Dict[str, int] = {}
     try:
-        partition_info = load_partition_info(dataset_name, alpha, seed)
+        partition_info = load_partition_info(dataset_name, alpha, seed, num_clients)
         for info in partition_info:
             client_num_samples[str(info["client_id"])] = info["total_samples"]
     except FileNotFoundError:
@@ -426,6 +443,7 @@ def run_experiment(
         local_epochs=local_epochs,
         learning_rate=learning_rate,
         logger=logger,
+        num_clients=num_clients,
     )
 
     # ── Run simulation ────────────────────────────────────────────────────
@@ -473,6 +491,9 @@ def run_experiment(
         "global_accuracy": final_metrics["A1_global_accuracy"],
         "gini_coefficient": final_metrics["B2_gini_coefficient"],
         "system_hetero": system_hetero,
+        "num_clients": num_clients,
+        "clients_per_round": clients_per_round,
+        "num_rounds": num_rounds,
     })
     if device_model is not None:
         final_metrics.update(compute_simulated_time_metrics(
@@ -636,7 +657,8 @@ def main():
         print(f"WARNING: alpha={args.alpha} is non-standard. "
               f"Standard values are 0.1, 0.5, 1.0.")
 
-    experiment_id = f"{args.strategy}_{args.dataset}_a{args.alpha}_s{args.seed}"
+    experiment_id = make_experiment_id(args.strategy, args.dataset, args.alpha,
+                                       args.seed, args.num_clients)
     logger = get_logger(experiment_id)
 
     try:

@@ -69,6 +69,8 @@ class FLClient(fl.client.NumPyClient):
         learning_rate: SGD learning rate.
         batch_size: Mini-batch size for local training.
         logger: Optional logger for structured output.
+        num_clients: Number of clients the partition was generated for
+            (selects the partition folder, see partitioner._get_partition_dir).
 
     Attributes:
         model: The local neural network (SimpleCNN or CIFARCNN).
@@ -87,6 +89,7 @@ class FLClient(fl.client.NumPyClient):
         learning_rate: float = 0.01,
         batch_size: int = 32,
         logger: logging.Logger = None,
+        num_clients: int = 10,
     ):
         self.cid = cid
         self.dataset_name = dataset_name
@@ -109,6 +112,7 @@ class FLClient(fl.client.NumPyClient):
             seed=seed,
             batch_size=batch_size,
             shuffle=True,
+            num_clients=num_clients,
         )
         self.n_train = len(self.trainloader.dataset)
 
@@ -116,7 +120,7 @@ class FLClient(fl.client.NumPyClient):
         self.model = _build_model(dataset_name, self.device)
 
         # TRACER: log client init info
-        info = get_client_data_info(int(cid), dataset_name, alpha, seed)
+        info = get_client_data_info(int(cid), dataset_name, alpha, seed, num_clients)
         tracer.trace_client_init(
             cid=int(cid),
             dataset_name=dataset_name,
@@ -273,6 +277,7 @@ def make_client_fn(
     learning_rate: float = 0.01,
     batch_size: int = 32,
     logger: logging.Logger = None,
+    num_clients: int = 10,
 ):
     """
     Factory function compatible with fl.simulation.start_simulation().
@@ -289,6 +294,8 @@ def make_client_fn(
         learning_rate: SGD learning rate.
         batch_size: Training batch size.
         logger: Optional logger.
+        num_clients: Number of clients the partition was generated for
+            (selects the partition folder).
 
     Returns:
         Callable[[str], FLClient]
@@ -308,6 +315,7 @@ def make_client_fn(
             learning_rate=learning_rate,
             batch_size=batch_size,
             logger=logger,
+            num_clients=num_clients,
         )
         # Newer Flower versions (>=1.13) require Client instances, not
         # NumPyClient directly. .to_client() wraps it for compatibility

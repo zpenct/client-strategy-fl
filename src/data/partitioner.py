@@ -28,15 +28,25 @@ DATA_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PARTITION_DIR = PROJECT_ROOT / "data" / "partitions"
 
 
-def _get_partition_dir(dataset_name: str, alpha: float, seed: int) -> Path:
+# The original grid used 10 clients and stored partitions without a client
+# count in the folder name; that layout is kept as-is for N=10 so existing
+# partitions (and the results built on them) stay valid.
+DEFAULT_NUM_CLIENTS = 10
+
+def _get_partition_dir(dataset_name: str, alpha: float, seed: int,
+                       num_clients: int = DEFAULT_NUM_CLIENTS) -> Path:
     """Return the directory for a specific partition configuration."""
     alpha_str = str(alpha).replace(".", "")
-    # e.g. data/partitions/mnist/alpha01_seed42/
-    return PARTITION_DIR / dataset_name / f"alpha{alpha_str}_seed{seed}"
+    # e.g. data/partitions/mnist/alpha01_seed42/      (10 clients)
+    #      data/partitions/mnist/alpha01_seed42_n50/  (50 clients)
+    name = f"alpha{alpha_str}_seed{seed}"
+    if num_clients != DEFAULT_NUM_CLIENTS:
+        name += f"_n{num_clients}"
+    return PARTITION_DIR / dataset_name / name
 
 
 def check_partition_exists(dataset_name: str, alpha: float, seed: int,
-                           num_clients: int = 10) -> bool:
+                           num_clients: int = DEFAULT_NUM_CLIENTS) -> bool:
     """
     Check whether all client partition files already exist on disk.
 
@@ -49,7 +59,7 @@ def check_partition_exists(dataset_name: str, alpha: float, seed: int,
     Returns:
         True if all client_{i}.pt files and partition_info.json exist.
     """
-    part_dir = _get_partition_dir(dataset_name, alpha, seed)
+    part_dir = _get_partition_dir(dataset_name, alpha, seed, num_clients)
     if not part_dir.exists():
         return False
     for i in range(num_clients):
@@ -169,7 +179,7 @@ def create_dirichlet_partition(
     if partition_dir is None:
         partition_dir = PARTITION_DIR
 
-    out_dir = _get_partition_dir(dataset_name, alpha, seed)
+    out_dir = _get_partition_dir(dataset_name, alpha, seed, num_clients)
 
     # Skip if already generated
     if not force and check_partition_exists(dataset_name, alpha, seed, num_clients):
@@ -292,7 +302,8 @@ def create_dirichlet_partition(
     return out_dir
 
 
-def load_partition_info(dataset_name: str, alpha: float, seed: int) -> List[Dict]:
+def load_partition_info(dataset_name: str, alpha: float, seed: int,
+                        num_clients: int = DEFAULT_NUM_CLIENTS) -> List[Dict]:
     """
     Load saved partition metadata from disk.
 
@@ -300,6 +311,7 @@ def load_partition_info(dataset_name: str, alpha: float, seed: int) -> List[Dict
         dataset_name: "mnist" or "cifar10".
         alpha: Dirichlet alpha.
         seed: Random seed.
+        num_clients: Number of clients the partition was generated for.
 
     Returns:
         List of per-client info dicts.
@@ -307,7 +319,7 @@ def load_partition_info(dataset_name: str, alpha: float, seed: int) -> List[Dict
     Raises:
         FileNotFoundError: If partition has not been generated yet.
     """
-    part_dir = _get_partition_dir(dataset_name, alpha, seed)
+    part_dir = _get_partition_dir(dataset_name, alpha, seed, num_clients)
     info_path = part_dir / "partition_info.json"
     if not info_path.exists():
         raise FileNotFoundError(

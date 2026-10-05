@@ -37,7 +37,9 @@ from typing import List, Optional
 # Allow running from project root
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from experiments.run_single import run_experiment, RESULTS_SYSTEM_DIR
+from experiments.run_single import (
+    run_experiment, make_experiment_id, RESULTS_SYSTEM_DIR, DEFAULT_NUM_CLIENTS,
+)
 from src.utils.logger import get_logger
 
 
@@ -61,10 +63,12 @@ class ExperimentSpec:
     alpha: float
     seed: int
     results_root: Path = RESULTS_DIR
+    num_clients: int = DEFAULT_NUM_CLIENTS
 
     @property
     def experiment_id(self) -> str:
-        return f"{self.strategy}_{self.dataset}_a{self.alpha}_s{self.seed}"
+        return make_experiment_id(self.strategy, self.dataset, self.alpha,
+                                  self.seed, self.num_clients)
 
     @property
     def result_dir(self) -> Path:
@@ -215,8 +219,9 @@ def run_batch(
         Dict with summary counts: done, skipped, failed.
     """
     grid = build_experiment_grid(strategies, datasets, alphas, seeds)
-    if system_hetero:
-        for spec in grid:
+    for spec in grid:
+        spec.num_clients = num_clients
+        if system_hetero:
             spec.results_root = RESULTS_SYSTEM_DIR
     total = len(grid)
 

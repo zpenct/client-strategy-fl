@@ -19,6 +19,7 @@ from src.data.partitioner import (
     _get_partition_dir,
     _load_test_dataset,
     DATA_RAW_DIR,
+    DEFAULT_NUM_CLIENTS,
 )
 
 
@@ -29,6 +30,7 @@ def get_client_dataloader(
     seed: int,
     batch_size: int = 32,
     shuffle: bool = True,
+    num_clients: int = DEFAULT_NUM_CLIENTS,
 ) -> DataLoader:
     """
     Load a single client's partitioned data as a DataLoader.
@@ -40,6 +42,7 @@ def get_client_dataloader(
         seed: Seed used when partitioning.
         batch_size: Mini-batch size for training.
         shuffle: Whether to shuffle data each epoch.
+        num_clients: Number of clients the partition was generated for.
 
     Returns:
         torch.utils.data.DataLoader over this client's data.
@@ -48,7 +51,7 @@ def get_client_dataloader(
         FileNotFoundError: If the partition file does not exist.
         RuntimeError: If the saved file is corrupt or missing keys.
     """
-    part_dir = _get_partition_dir(dataset_name, alpha, seed)
+    part_dir = _get_partition_dir(dataset_name, alpha, seed, num_clients)
     pt_file = part_dir / f"client_{client_id}.pt"
 
     if not pt_file.exists():
@@ -96,6 +99,7 @@ def get_client_data_info(
     dataset_name: str,
     alpha: float,
     seed: int,
+    num_clients: int = DEFAULT_NUM_CLIENTS,
 ) -> dict:
     """
     Return metadata about a client's partition without loading full tensors.
@@ -105,11 +109,12 @@ def get_client_data_info(
         dataset_name: "mnist" or "cifar10".
         alpha: Dirichlet alpha.
         seed: Partition seed.
+        num_clients: Number of clients the partition was generated for.
 
     Returns:
         Dict with keys: n_samples, input_shape, classes, labels_tensor.
     """
-    part_dir = _get_partition_dir(dataset_name, alpha, seed)
+    part_dir = _get_partition_dir(dataset_name, alpha, seed, num_clients)
     pt_file = part_dir / f"client_{client_id}.pt"
 
     if not pt_file.exists():

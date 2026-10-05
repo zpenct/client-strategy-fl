@@ -88,7 +88,7 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
     """
     rows: List[Dict] = []
     for exp_dir in sorted(results_dir.iterdir()):
-        if not exp_dir.is_dir() or exp_dir.name in {"analysis", "_validation"}:
+        if not exp_dir.is_dir() or exp_dir.name.startswith(("analysis", "_validation")):
             continue
         metrics_path = exp_dir / "final_metrics.json"
         if not metrics_path.exists():
@@ -109,6 +109,10 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df["alpha"] = df["alpha"].astype(float)
+    # Runs saved before num_clients was recorded are the original N=10 grid.
+    if "num_clients" not in df:
+        df["num_clients"] = 10
+    df["num_clients"] = df["num_clients"].fillna(10).astype(int)
     return df
 
 
@@ -271,22 +275,41 @@ def summarize_fairness_threshold(pareto_df: pd.DataFrame) -> pd.DataFrame:
 def main():
     parser = argparse.ArgumentParser(description="Aggregate and analyze the full FL experiment grid.")
     parser.add_argument("--results_dir", type=str, default=str(RESULTS_DIR))
+    parser.add_argument("--num_clients", type=int, default=None,
+                         help="Only analyze runs with this client count "
+                              "(required if results_dir mixes several scales)")
     parser.add_argument("--out_dir", type=str, default=None,
                          help="Default: <results_dir>/analysis")
     args = parser.parse_args()
 
     results_dir = Path(args.results_dir)
-    out_dir = Path(args.out_dir) if args.out_dir else results_dir / "analysis"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    # Default keeps results/analysis for the original N=10 grid and gives
+    # each scaled-up grid its own folder (analysis_n50, ...).
+    default_out = ("analysis" if args.num_clients in (None, 10)
+                   else f"analysis_n{args.num_clients}")
+    out_dir = Path(args.out_dir) if args.out_dir else results_dir / default_out
 
     print("=" * 70)
     print("  CROSS-EXPERIMENT ANALYSIS")
     print("=" * 70)
 
     df = load_all_results(results_dir)
-    print(f"  Loaded {len(df)} completed experiments from {results_dir}")
+    if args.num_clients is not None:
+        df = df[df["num_clients"] == args.num_clients]
+    client_counts = sorted(df["num_clients"].unique())
+    if len(client_counts) > 1:
+        raise SystemExit(
+            f"  ERROR: {results_dir} mixes runs with num_clients={client_counts}. "
+            f"Pass --num_clients to analyze one scale at a time.")
+    if df.empty:
+        raise SystemExit(f"  ERROR: no runs with num_clients={args.num_clients} in {results_dir}.")
+    print(f"  Loaded {len(df)} completed experiments from {results_dir} "
+          f"(num_clients={client_counts[0]})")
 
-    expected = 3 * 3 * 2 * 3  # strategies x alphas x datasets x seeds
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    n_seeds = df["seed"].nunique()
+    expected = 3 * 3 * df["dataset"].nunique() * n_seeds  # strategies x alphas x datasets x seeds
     if len(df) < expected:
         print(f"  WARNING: expected {expected} experiments (full grid), found {len(df)}. "
               f"Analysis will run on the available subset.")
