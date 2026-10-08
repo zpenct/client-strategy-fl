@@ -85,6 +85,18 @@ NUM_CLIENTS    = 50
 
 # Refactor Log:
 
+## 2026-10-08 — Fix error cell load notebook (`'DataFrame' object has no attribute 'dataset'`)
+
+Penyebab: notebook yang dijalankan di komputer lab menyusun daftar eksperimen tanpa akhiran `_n50` (loader versi lama, belum memakai `NUM_CLIENTS`), sehingga 0 hasil termuat. `df` kosong lalu crash di `df.dataset`. Folder hasil juga bernama `results_system-n-20`, bukan `results_system`.
+
+Perbaikan loader (`# ── Load semua hasil eksperimen`):
+- Jumlah klien tiap run dideteksi berurutan dari `final_metrics.json` → `config.json` → akhiran nama folder `_n<N>` → default 10. Run tetap terbaca walau salah satu file tidak mencatat `num_clients`.
+- Kalau 0 hasil termuat, cell mencetak **diagnosis**: folder ada/tidak, jumlah subfolder & `final_metrics.json`, `num_clients` yang terdeteksi, dan daftar folder `results*` di root. Setelah itu baru berhenti dengan pesan jelas, bukan `AttributeError`.
+
+Verifikasi: notebook dijalankan pada **90 hasil asli N=50 heterogen** (`results_system/`, disalin dari lab) — 0 error, `Loaded 90 (N=50)`, `100 round`, `seeds=[42,123,456,789,1024]`, `Missing 0`, 24 figure/CSV di `notebooks/figures/results_system_n50/`. Juga diuji pada folder bernama `results_system-n-20`, run tanpa `num_clients`, dan N salah (memunculkan diagnosis).
+
+Catatan: di laptop, folder `results/` saat ini **kosong** (54 hasil 10-klien tidak ada di disk, tapi masih aman di git commit `68e6d60`; pulihkan dengan `git checkout -- results/`).
+
 ## 2026-10-08 — Deep check pipeline analisis untuk hasil N=50 (sebelum batch 90 eksperimen selesai)
 
 **Kesimpulan: siap**, setelah perbaikan di bawah. Diverifikasi dengan hasil sintetis N=50 (format file persis sama dengan output `run_single.py`; nilai acak, hanya untuk menguji kode).
