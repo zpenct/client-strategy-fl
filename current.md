@@ -65,7 +65,14 @@ python experiments/analyze_results.py --results_dir results_system --num_clients
 Output: `results/analysis_n50/` dan `results_system/analysis_n50/` (summary, Pareto, ANOVA, threshold; versi heterogen juga berisi metrik waktu simulasi). `--num_clients` **wajib**, karena folder `results/` berisi campuran 10 dan 50 klien; tanpa flag ini script akan berhenti dengan pesan error, bukan diam-diam mencampur.
 
 ### Step 5 — Notebook
-Notebook (`notebooks/analysis.ipynb`) **belum** mendukung N=50. Cell load masih mencari nama folder tanpa `_n50`, seed masih 3, dan plot partisi masih 10 kolom klien. Ini akan disesuaikan setelah hasil N=50 ada.
+Di cell setup (`# ── Style konsisten`), ubah 2 baris lalu **Restart kernel → Run All**:
+```python
+RESULTS_SUBDIR = 'results'          # atau 'results_system' (heterogen)
+NUM_CLIENTS    = 50
+```
+- Seed, jumlah round, dan klien/round dibaca otomatis dari `final_metrics.json`. Cek output cell load: harus `Loaded : 90 eksperimen ... (N=50)`, `Config : 5 klien/round | 100 round | seeds=[42, 123, 456, 789, 1024]`, `Missing : 0`.
+- Figure & CSV tersimpan di `notebooks/figures/results_n50/` atau `results_system_n50/`.
+- Partisi N=50 harus ada di mesin yang menjalankan notebook untuk section 1 (visualisasi partisi). Kalau tidak ada, section itu dilewati otomatis; section lain tetap jalan.
 
 ### Ringkasan lokasi artefak
 | | 10 klien (lama) | 50 klien (baru) |
@@ -77,6 +84,24 @@ Notebook (`notebooks/analysis.ipynb`) **belum** mendukung N=50. Cell load masih 
 
 
 # Refactor Log:
+
+## 2026-10-08 — Deep check pipeline analisis untuk hasil N=50 (sebelum batch 90 eksperimen selesai)
+
+**Kesimpulan: siap**, setelah perbaikan di bawah. Diverifikasi dengan hasil sintetis N=50 (format file persis sama dengan output `run_single.py`; nilai acak, hanya untuk menguji kode).
+
+Masalah yang ditemukan & diperbaiki:
+1. `notebooks/analysis.ipynb` **tidak bisa** membaca hasil N=50 (folder `_n50`, seed 3 hardcode, partisi diasumsikan 10 klien). Diperbaiki:
+   - Saklar `NUM_CLIENTS` (+ `SEEDS_EXPECTED` opsional). Hasil dipindai langsung dari folder & disaring berdasarkan `num_clients` di `final_metrics.json`. Seed, round, dan klien/round terdeteksi otomatis. Ada peringatan kalau konfigurasi tercampur.
+   - Section 1 (partisi): membaca folder partisi sesuai N. 1A menampilkan 10 klien pertama, heatmap 1B menampilkan semua klien, 1C ditambah `min_samples`.
+   - Label "3 seeds" / "20 rounds" / tabel konfigurasi / seed=42 tetap → dinamis.
+   - 4C (participation per klien): klien yang tidak pernah terpilih kini tampil sebagai 0. Sebelumnya hilang dari grafik, padahal kasus ini mungkin terjadi di N=50.
+   - ANOVA (section 9) ditulis ulang: A2 dikeluarkan dari ANOVA (run yang gagal mencapai target menjadi NaN, sehingga desain tidak seimbang dan bias). Ditambah effect size η²p, uji asumsi (Shapiro residual + Levene), uji non-parametrik Kruskal-Wallis per (dataset, α), dan ekspor CSV. Cell debug `df.info()` dan cell kosong dihapus.
+   - Plot Pareto (10) sekarang disimpan ke file (`15_pareto_*.png`); sebelumnya hanya ditampilkan.
+2. `experiments/analyze_results.py`: kolom metrik dikonversi ke numerik saat load. Kalau semua run di satu sel tidak mencapai target, `A2` bertipe object dan bisa crash.
+
+Verifikasi (semua 0 error): notebook × 3 skenario (N=10 hasil asli; N=50 homogen dan N=50 heterogen pada folder campuran 10+50 klien), `analyze_results.py` × 4 skenario (termasuk menolak folder campuran tanpa `--num_clients`). Figure N=50 dicek visual (participation 50 batang, heatmap 50 baris, kurva 100 round).
+
+Belum terverifikasi: smoke test run sungguhan N=50 di laptop terputus 2× (disk laptop 98% penuh, Ray memberi peringatan). Run 1 round N=50 sempat berjalan normal (akurasi round 1 = 38%). Batch di komputer lab yang sedang berjalan adalah verifikasi sebenarnya.
 
 ## 2026-10-05 — Dukungan skala N≠10 (persiapan up-scaling)
 

@@ -109,6 +109,13 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df["alpha"] = df["alpha"].astype(float)
+    # Metrics that are None when a target is never reached (A2) arrive as
+    # object dtype; coerce so mean/std/ANOVA treat them as NaN, not crash.
+    numeric_cols = (["A1_global_accuracy", "A2_rounds_to_target"] + DEPENDENT_VARS
+                    + ROBUST_VARS + SYSTEM_VARS)
+    for col in numeric_cols:
+        if col in df:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
     # Runs saved before num_clients was recorded are the original N=10 grid.
     if "num_clients" not in df:
         df["num_clients"] = 10
