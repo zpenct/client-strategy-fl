@@ -14,8 +14,10 @@ fairness-aware selection become Pareto-optimal, and is this consistent
 across MNIST and CIFAR-10?").
 
 Usage:
+    # Final grid (default): 50 clients, simulated device heterogeneity
     python experiments/analyze_results.py
-    python experiments/analyze_results.py --results_dir results --out_dir results/analysis
+    # Other result sets, e.g. the original 10-client homogeneous grid
+    python experiments/analyze_results.py --results_dir results --num_clients 10
 
 Author: FL Experiment System
 Date: 2026
@@ -42,6 +44,9 @@ from src.metrics.evaluator import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RESULTS_DIR = PROJECT_ROOT / "results"
+# Final experiment grid analyzed by default: N=50, --system_hetero.
+DEFAULT_RESULTS_DIR = PROJECT_ROOT / "results_system"
+DEFAULT_NUM_CLIENTS = 50
 DEPENDENT_VARS = [
     "A1_global_accuracy",
     "B1_accuracy_variance",
@@ -281,12 +286,13 @@ def summarize_fairness_threshold(pareto_df: pd.DataFrame) -> pd.DataFrame:
 
 def main():
     parser = argparse.ArgumentParser(description="Aggregate and analyze the full FL experiment grid.")
-    parser.add_argument("--results_dir", type=str, default=str(RESULTS_DIR))
-    parser.add_argument("--num_clients", type=int, default=None,
-                         help="Only analyze runs with this client count "
-                              "(required if results_dir mixes several scales)")
+    parser.add_argument("--results_dir", type=str, default=str(DEFAULT_RESULTS_DIR),
+                         help="Default: results_system/ (final grid)")
+    parser.add_argument("--num_clients", type=int, default=DEFAULT_NUM_CLIENTS,
+                         help=f"Only analyze runs with this client count "
+                              f"(default: {DEFAULT_NUM_CLIENTS})")
     parser.add_argument("--out_dir", type=str, default=None,
-                         help="Default: <results_dir>/analysis")
+                         help="Default: <results_dir>/analysis_n<N> (analysis/ for N=10)")
     args = parser.parse_args()
 
     results_dir = Path(args.results_dir)

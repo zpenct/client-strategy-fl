@@ -6,6 +6,16 @@
 - setiap ada pembaruan penting tolong berikan updatenya di file ini
 
 
+# Data final skripsi (per 2026-10-08)
+
+**Hanya `results_system/`** yang dipakai: 90 eksperimen, 50 klien (5/round), 100 round, heterogenitas perangkat, seed 42/123/456/789/1024. Folder `results/` (tanpa heterogenitas) **tidak dipakai lagi**. Step 3a di bawah tidak dijalankan.
+
+Analisis — tidak perlu flag atau edit apa pun, default sudah mengarah ke grid final:
+```bash
+python experiments/analyze_results.py          # → results_system/analysis_n50/
+```
+Notebook `notebooks/analysis.ipynb`: langsung **Restart kernel → Run All** (default `RESULTS_SUBDIR='results_system'`, `NUM_CLIENTS=50`). Figure & CSV → `notebooks/figures/results_system_n50/`.
+
 # Tutorial: Up-scaling eksperimen (N=50 klien) — partisi → run → analisis
 
 > Ditulis 2026-10-05. Kode untuk skala N≠10 sudah siap (lihat Refactor Log 2026-10-05 di bawah). Data & hasil 10 klien **tidak tersentuh**: semua artefak N=50 memakai akhiran `_n50`.
@@ -59,15 +69,15 @@ Tips:
 
 ### Step 4 — Analisis lintas eksperimen
 ```bash
-python experiments/analyze_results.py --results_dir results        --num_clients 50
-python experiments/analyze_results.py --results_dir results_system --num_clients 50
+python experiments/analyze_results.py      # default: --results_dir results_system --num_clients 50
+# set hasil lain, mis.: --results_dir results --num_clients 10
 ```
 Output: `results/analysis_n50/` dan `results_system/analysis_n50/` (summary, Pareto, ANOVA, threshold; versi heterogen juga berisi metrik waktu simulasi). `--num_clients` **wajib**, karena folder `results/` berisi campuran 10 dan 50 klien; tanpa flag ini script akan berhenti dengan pesan error, bukan diam-diam mencampur.
 
 ### Step 5 — Notebook
-Di cell setup (`# ── Style konsisten`), ubah 2 baris lalu **Restart kernel → Run All**:
+Default cell setup (`# ── Style konsisten`) sudah grid final, jadi langsung **Restart kernel → Run All**:
 ```python
-RESULTS_SUBDIR = 'results'          # atau 'results_system' (heterogen)
+RESULTS_SUBDIR = 'results_system'
 NUM_CLIENTS    = 50
 ```
 - Seed, jumlah round, dan klien/round dibaca otomatis dari `final_metrics.json`. Cek output cell load: harus `Loaded : 90 eksperimen ... (N=50)`, `Config : 5 klien/round | 100 round | seeds=[42, 123, 456, 789, 1024]`, `Missing : 0`.
@@ -85,6 +95,12 @@ NUM_CLIENTS    = 50
 
 # Refactor Log:
 
+## 2026-10-08 — Grid final = `results_system/` (N=50); `results/` tidak dipakai
+
+- `experiments/analyze_results.py`: default `--results_dir results_system --num_clients 50` (sebelumnya `results`, semua skala). Dijalankan pada 90 hasil asli → `results_system/analysis_n50/` (summary, Pareto, robust Pareto, ANOVA, threshold).
+- `notebooks/analysis.ipynb`: default `RESULTS_SUBDIR='results_system'`, `NUM_CLIENTS=50`; header notebook diperbarui. Dijalankan tanpa edit: 0 error, 90 termuat.
+- Kode untuk set hasil lain tetap berfungsi lewat flag/variabel (tidak ada yang dihapus).
+
 ## 2026-10-08 — Fix error cell load notebook (`'DataFrame' object has no attribute 'dataset'`)
 
 Penyebab: notebook yang dijalankan di komputer lab menyusun daftar eksperimen tanpa akhiran `_n50` (loader versi lama, belum memakai `NUM_CLIENTS`), sehingga 0 hasil termuat. `df` kosong lalu crash di `df.dataset`. Folder hasil juga bernama `results_system-n-20`, bukan `results_system`.
@@ -94,6 +110,10 @@ Perbaikan loader (`# ── Load semua hasil eksperimen`):
 - Kalau 0 hasil termuat, cell mencetak **diagnosis**: folder ada/tidak, jumlah subfolder & `final_metrics.json`, `num_clients` yang terdeteksi, dan daftar folder `results*` di root. Setelah itu baru berhenti dengan pesan jelas, bukan `AttributeError`.
 
 Verifikasi: notebook dijalankan pada **90 hasil asli N=50 heterogen** (`results_system/`, disalin dari lab) — 0 error, `Loaded 90 (N=50)`, `100 round`, `seeds=[42,123,456,789,1024]`, `Missing 0`, 24 figure/CSV di `notebooks/figures/results_system_n50/`. Juga diuji pada folder bernama `results_system-n-20`, run tanpa `num_clients`, dan N salah (memunculkan diagnosis).
+
+Tambahan: deteksi `ROOT` notebook sebelumnya mensyaratkan folder `results/` ada. Kalau hanya ada `results_system/`, ROOT bisa salah sehingga 0 hasil termuat. Sekarang ROOT dideteksi dari `src/` + `experiments/`. Cell pertama juga mencetak daftar semua folder `results*` beserta jumlah eksperimennya. Diuji dengan hanya `results_system/` (tanpa `results/`): 0 error, 90 termuat.
+
+Lokasi hasil yang diharapkan (tidak perlu dipindah): `<root>/results/` (homogen) dan `<root>/results_system/` (heterogen), dengan subfolder `<strategy>_<dataset>_a<α>_s<seed>[_n<N>]`.
 
 Catatan: di laptop, folder `results/` saat ini **kosong** (54 hasil 10-klien tidak ada di disk, tapi masih aman di git commit `68e6d60`; pulihkan dengan `git checkout -- results/`).
 
