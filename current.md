@@ -16,6 +16,89 @@ python experiments/analyze_results.py          # → results_system/analysis_n50
 ```
 Notebook `notebooks/analysis.ipynb`: langsung **Restart kernel → Run All** (default `RESULTS_SUBDIR='results_system'`, `NUM_CLIENTS=50`). Figure & CSV → `notebooks/figures/results_system_n50/`.
 
+# Evaluasi hasil final vs proposal (2026-10-09)
+
+Sumber: `results_system/analysis_n50/*`, `notebooks/figures/results_system_n50/*`, plus uji Mann-Whitney tambahan untuk time-to-target. Setting: 50 klien, 5 per round, 100 round, heterogenitas perangkat, 5 seed.
+
+**Temuan utama**
+- **A1 (akurasi):** efek strategi tidak signifikan (MNIST p=0.42, CIFAR p=0.82). Efek α dominan (CIFAR η²p=0.91). Deskriptif CIFAR α=0.1: Oort 55.6±1.6, FairFedCS 54.7±**7.1** (sangat tidak stabil), Random 52.3±3.4.
+- **B1/B2 (fairness per-klien):** efek utama strategi tidak signifikan, tapi **interaksi strategi×α signifikan di CIFAR** (B1 p=0.0014, B2 p=0.019). Polanya bersilangan: di α=0.1 Random paling timpang (B1 0.216 vs Oort 0.179, FairFedCS 0.188); di α=0.5/1.0 Random paling merata. Catatan: versi robust (rata-rata 5 round terakhir) interaksinya tidak signifikan (p=0.13), jadi temuan ini sebagian sensitif terhadap snapshot round terakhir.
+- **B3 (partisipasi):** efek strategi sangat signifikan (η²p 0.74 MNIST / 0.91 CIFAR). Urutannya konsisten: Random (~3.2) < FairFedCS (~4.5) < Oort (hingga 8.3). **FairFedCS tidak menghasilkan partisipasi paling merata.**
+- **Efisiensi waktu (heterogenitas perangkat):** Oort tercepat & signifikan. Time-to-target CIFAR α=0.5: 2507 s vs Random 3983 / FairFedCS 3713 (~1,5×); MNIST α=0.1: 174 vs 556/647 (~3,2×). Mann-Whitney p≈0.008–0.016, kecuali MNIST α=1.0 (p≈0.1). Total waktu Oort ±40–55% lebih rendah. Oort butuh **lebih banyak round** (CIFAR α=0.5: 74.6 vs 65.8) tapi round-nya jauh lebih singkat. Konsisten dengan klaim paper Oort (1,2×–14,1×).
+- **Pareto (A1 vs Gini):** CIFAR α=0.1 → Oort; α=0.5 → Random; α=1.0 → Random (robust: Random+FairFedCS). MNIST α=0.1 → FairFedCS; α=0.5 → Random; α=1.0 → FairFedCS+Random. Threshold FairFedCS **tidak konsisten** antar dataset; di MNIST selisihnya di dalam noise.
+- **Asumsi ANOVA:** normalitas residual dilanggar untuk A1/B1/B2 (Shapiro p<0.001). Kruskal-Wallis memberi kesimpulan yang sama, jadi laporkan keduanya.
+
+**Status terhadap proposal:** RM1–RM3 bisa dijawab (jawabannya sebagian besar "tidak berbeda signifikan; α dominan; FairFedCS tidak konsisten optimal"). Tujuan 1–2 tercapai, Tujuan 3 tercapai dalam bentuk panduan bersyarat. Bagian proposal yang perlu direvisi: lihat jawaban chat 2026-10-09 (Batasan, Tabel 1, metrik, metodologi Oort/FairFedCS, definisi fairness, sitasi).
+
+# Glosarium simbol statistik (untuk membaca hasil ANOVA & uji lain)
+
+Contoh dari hasil A1 MNIST: **F = 0,89; p = 0,419; η²p = 0,047**.
+
+## Ringkasan simbol
+
+| Simbol | Nama | Arti singkat | Cara membaca |
+|---|---|---|---|
+| **n** | Ukuran sampel | Jumlah ulangan (eksperimen) per kelompok/sel | Di sini **n = 5** (5 seed) per kombinasi strategi × α × dataset |
+| **N** | Jumlah klien | *Bukan* simbol statistik; jumlah klien FL | N = 50 |
+| **F** | Statistik F | Rasio variasi **antar** kelompok terhadap variasi **dalam** kelompok | F ≈ 1 → perbedaan antar kelompok seukuran noise; F jauh > 1 → perbedaan antar kelompok jauh melebihi noise |
+| **p** | *p-value* | Peluang memperoleh perbedaan sebesar ini (atau lebih) **jika sebenarnya tidak ada efek** | p < 0,05 → **signifikan** (efek kemungkinan nyata); p ≥ 0,05 → tidak signifikan |
+| **η²p** | *Partial eta squared* | **Besar efek**: proporsi variasi data yang dijelaskan oleh faktor tersebut | 0,01 kecil · 0,06 sedang · ≥ 0,14 besar (Cohen, 1988) |
+| **H** | Statistik Kruskal–Wallis | "Versi F" untuk uji non-parametrik (berbasis peringkat) | Makin besar → makin berbeda; baca bersama p |
+| **U** | Statistik Mann–Whitney | Uji non-parametrik untuk membandingkan **dua** kelompok | Baca bersama p |
+| **α (alpha)** | Konsentrasi Dirichlet | *Bukan* taraf signifikansi di dokumen ini, tetapi **tingkat label skew** | α kecil = skew berat |
+| **σ (sigma)** | — | Dua arti di proyek ini: (1) σ = 0,6 di FairFedCS = bobot reputasi dalam CSI; (2) σ = 1 di model perangkat = sebaran distribusi log-normal | Lihat konteks |
+| **±** / std | Simpangan baku | Seberapa jauh hasil 5 seed menyebar dari reratanya | Makin kecil = makin konsisten |
+
+> Catatan: di dokumen ini **α selalu berarti parameter Dirichlet**. Batas signifikansi ditulis langsung sebagai "p < 0,05" supaya tidak tertukar.
+
+## Penjelasan lebih rinci
+
+**1. F (statistik F, dari ANOVA)**
+ANOVA membandingkan dua sumber variasi:
+- variasi **antar kelompok**, misalnya perbedaan rerata akurasi Random vs Oort vs FairFedCS;
+- variasi **dalam kelompok**, yaitu perbedaan antar-seed pada strategi yang sama (noise).
+
+F = (variasi antar kelompok) ÷ (variasi dalam kelompok).
+- **F = 0,89** (efek strategi pada A1 MNIST): perbedaan antarstrategi **lebih kecil** daripada perbedaan antar-seed. Dengan kata lain, strategi tidak membuat perbedaan yang melebihi noise.
+- **F = 189,6** (efek α pada A1 CIFAR-10): perbedaan antar tingkat skew sekitar 190 kali lebih besar daripada noise, sehingga efeknya sangat kuat.
+
+**2. p (*p-value*)**
+p menjawab: "Kalau sebenarnya strategi **tidak** berpengaruh sama sekali, seberapa mungkin kita tetap melihat perbedaan sebesar ini hanya karena kebetulan?"
+- **p = 0,419** → peluangnya 41,9%. Perbedaan seperti itu sangat wajar muncul karena kebetulan, jadi **tidak signifikan**.
+- **p < 0,001** → peluangnya di bawah 0,1%, sangat kecil untuk kebetulan, jadi **signifikan**.
+- Batas yang dipakai: **p < 0,05**.
+- Kesalahan umum: p **bukan** peluang hipotesis benar, dan p kecil **tidak** berarti efeknya besar. Untuk besar efek, lihat η²p.
+
+**3. η²p (*partial eta squared*, besar efek)**
+η²p menjawab: "Seberapa **besar** pengaruh faktor ini?" Nilainya 0–1 dan bisa dibaca sebagai persentase variasi yang dijelaskan faktor tersebut.
+- **η²p = 0,047** (strategi → A1 MNIST): strategi hanya menjelaskan ±4,7% variasi akurasi. Efeknya kecil.
+- **η²p = 0,913** (α → A1 CIFAR-10): label skew menjelaskan ±91% variasi akurasi. Efeknya sangat besar.
+- **η²p = 0,910** (strategi → B3 CIFAR-10): strategi menjelaskan ±91% variasi pemerataan partisipasi. Efeknya sangat besar.
+- Kata *partial* berarti dihitung setelah efek faktor lain dalam model (α dan interaksi) dipisahkan.
+
+**4. Kenapa harus melihat p DAN η²p bersama-sama**
+| p | η²p | Artinya |
+|---|---|---|
+| < 0,05 | besar | Efek nyata **dan** penting → temuan kuat (contoh: α → A1; strategi → B3) |
+| < 0,05 | kecil | Efek nyata tapi kecil secara praktis (contoh: strategi → A1 robust MNIST, selisih < 0,4 poin) |
+| ≥ 0,05 | kecil | Tidak ada bukti efek (contoh: strategi → A1 MNIST, p = 0,419; η²p = 0,047) |
+| ≥ 0,05 | sedang/besar | Mungkin ada efek, tapi data kurang (n terlalu kecil) untuk memastikannya |
+
+**5. Efek utama vs interaksi (istilah di tabel ANOVA)**
+- **Efek utama strategi:** apakah strategi berpengaruh *secara rata-rata* di semua α.
+- **Efek utama α:** apakah tingkat skew berpengaruh *secara rata-rata* di semua strategi.
+- **Interaksi strategi × α:** apakah **strategi terbaik berubah tergantung α**. Contoh: B1 CIFAR-10, di mana Random paling merata pada α = 0,5–1,0 tetapi paling timpang pada α = 0,1 (interaksi p = 0,0014).
+
+**6. Uji asumsi & uji non-parametrik**
+- **Shapiro–Wilk** (kolom "Normalitas resid."): menguji apakah residual berdistribusi normal. p < 0,05 berarti **tidak normal**, sehingga asumsi ANOVA dilanggar.
+- **Levene**: menguji apakah varians antar kelompok sama. p < 0,05 berarti varians **tidak sama**.
+- **Kruskal–Wallis (H)** dan **Mann–Whitney (U)**: uji berbasis peringkat yang **tidak** membutuhkan asumsi normalitas. Dipakai untuk mengonfirmasi ANOVA ketika asumsinya dilanggar. Kalau kesimpulannya sama dengan ANOVA, hasilnya robust.
+
+**Contoh kalimat untuk skripsi:**
+> "Two-way ANOVA menunjukkan bahwa strategi seleksi tidak berpengaruh signifikan terhadap akurasi global pada MNIST (F = 0,89; p = 0,419; η²p = 0,047), sedangkan tingkat label skew berpengaruh signifikan dengan efek besar (F = 13,07; p < 0,001; η²p = 0,421)."
+
+Referensi ambang besar efek: Cohen, J. (1988). *Statistical Power Analysis for the Behavioral Sciences* (2nd ed.). Lawrence Erlbaum.
+
 # Tutorial: Up-scaling eksperimen (N=50 klien) — partisi → run → analisis
 
 > Ditulis 2026-10-05. Kode untuk skala N≠10 sudah siap (lihat Refactor Log 2026-10-05 di bawah). Data & hasil 10 klien **tidak tersentuh**: semua artefak N=50 memakai akhiran `_n50`.
