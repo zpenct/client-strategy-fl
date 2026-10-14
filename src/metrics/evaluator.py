@@ -189,6 +189,86 @@ def compute_participation_fairness(participation_counts: Dict[str, int]) -> floa
     return float(np.std(values))
 
 
+def compute_jain_fairness_index(
+    participation_counts: Dict[str, int],
+    client_quality: Optional[Dict[str, float]] = None,
+) -> float:
+    """
+    Jain's Fairness Index of client selection, as used to evaluate FairFedCS
+    (Shi et al., 2023, Eq. 15):
+
+        JFI = (sum_i y_i/z_i)^2 / (n * sum_i (y_i/z_i)^2)
+
+    where y_i is how often client i was selected and z_i its data quality.
+    With no quality given (z_i = 1) this is plain selection evenness.
+    Ranges from 1/n (one client gets every selection) to 1 (perfectly
+    fair: selections equal, or proportional to quality when weighted).
+
+    Unlike B3 (std of raw counts), the weighted JFI rewards selecting
+    higher-quality clients more often — the notion of fairness FairFedCS
+    actually optimizes for.
+
+    Args:
+        participation_counts: client_id -> number of rounds selected.
+        client_quality: Optional client_id -> quality z_i > 0. Must cover
+            every client in participation_counts.
+
+    Returns:
+        JFI in [1/n, 1].
+
+    Raises:
+        ValueError: If participation_counts is empty, or a client lacks a
+            positive quality value.
+
+    Example:
+        >>> compute_jain_fairness_index({"0": 5, "1": 5})
+        1.0
+        >>> compute_jain_fairness_index({"0": 10, "1": 0})
+        0.5
+        >>> compute_jain_fairness_index({"0": 4, "1": 2}, {"0": 1.0, "1": 0.5})
+        1.0
+    """
+    if not participation_counts:
+        raise ValueError("participation_counts cannot be empty.")
+    cids = list(participation_counts)
+    y = np.array([participation_counts[c] for c in cids], dtype=float)
+    if client_quality is not None:
+        z = np.array([client_quality.get(c, 0.0) for c in cids], dtype=float)
+        if np.any(z <= 0):
+            raise ValueError("client_quality must give every client a positive value.")
+        y = y / z
+    total_sq = float((y ** 2).sum())
+    if total_sq == 0:
+        return 1.0   # nobody selected: trivially even
+    return float(y.sum() ** 2 / (len(y) * total_sq))
+
+
+def client_quality_from_partition(partition_info: List[Dict]) -> Dict[str, float]:
+    """
+    Per-client data quality z_i following the FairFedCS evaluation protocol
+    (Shi et al., 2023): z_i = n_class_i * (1 - p_noisy_i), min-max scaled
+    to [0.5, 1].
+
+    Our partitions inject no label noise (p_noisy_i = 0), so quality
+    reduces to the number of classes a client holds — i.e. how
+    representative its label distribution is under label skew.
+
+    Args:
+        partition_info: Entries from partition_info.json (need "client_id"
+            and "missing_classes").
+
+    Returns:
+        client_id (str) -> quality in [0.5, 1]. All 1.0 if every client
+        holds the same number of classes.
+    """
+    n_class = {str(info["client_id"]): 10 - len(info.get("missing_classes", []))
+               for info in partition_info}
+    lo, hi = min(n_class.values()), max(n_class.values())
+    if hi == lo:
+        return {cid: 1.0 for cid in n_class}
+    return {cid: 0.5 + 0.5 * (n - lo) / (hi - lo) for cid, n in n_class.items()}
+
+
 # ─── Group C: Trade-off Analysis ────────────────────────────────────────────
 
 def build_pareto_data(results_dict: Dict) -> "pd.DataFrame":

@@ -162,3 +162,37 @@ class TestSimulatedTime:
     def test_target_never_reached(self, device_model):
         out = compute_simulated_time_metrics([{"0": 1}], device_model, [10.0], 85.0)
         assert out["A2_time_to_target_seconds"] is None
+
+
+# ─── Jain's Fairness Index (FairFedCS selection fairness) ───────────────────
+
+from src.metrics.evaluator import compute_jain_fairness_index, client_quality_from_partition
+
+
+class TestJainFairnessIndex:
+
+    def test_equal_selection_is_perfectly_fair(self):
+        assert compute_jain_fairness_index({"0": 7, "1": 7, "2": 7}) == pytest.approx(1.0)
+
+    def test_single_client_is_minimum(self):
+        assert compute_jain_fairness_index({"0": 9, "1": 0, "2": 0}) == pytest.approx(1 / 3)
+
+    def test_selection_proportional_to_quality_is_fair(self):
+        """FairFedCS notion: higher-quality clients may be picked more often."""
+        counts = {"0": 8, "1": 4}
+        quality = {"0": 1.0, "1": 0.5}
+        assert compute_jain_fairness_index(counts, quality) == pytest.approx(1.0)
+        assert compute_jain_fairness_index(counts) < 1.0
+
+    def test_missing_quality_rejected(self):
+        with pytest.raises(ValueError):
+            compute_jain_fairness_index({"0": 1, "1": 1}, {"0": 1.0})
+
+    def test_quality_from_partition_scaled(self):
+        info = [{"client_id": 0, "missing_classes": []},
+                {"client_id": 1, "missing_classes": list(range(9))},
+                {"client_id": 2, "missing_classes": [0, 1, 2, 3]}]
+        q = client_quality_from_partition(info)
+        assert q["0"] == pytest.approx(1.0)      # 10 classes -> max
+        assert q["1"] == pytest.approx(0.5)      # 1 class -> min
+        assert 0.5 < q["2"] < 1.0

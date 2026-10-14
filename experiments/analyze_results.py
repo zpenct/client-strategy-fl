@@ -34,9 +34,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pandas as pd
 
+from src.data.partitioner import load_partition_info
 from src.metrics.evaluator import (
+    client_quality_from_partition,
     compute_accuracy_variance,
     compute_gini_coefficient,
+    compute_jain_fairness_index,
     run_two_way_anova,
     HAS_SCIPY,
 )
@@ -76,6 +79,15 @@ SYSTEM_VARS = [
     "A2_time_to_target_seconds",
 ]
 
+# Selection fairness as evaluated in the FairFedCS paper (Jain's Fairness
+# Index, Shi et al. 2023 Eq. 15). Higher = fairer, unlike B3. The
+# quality-weighted variant needs the run's partition_info.json; if the
+# partition is not on this machine it is left NaN (unweighted still works).
+JFI_VARS = [
+    "B4_jfi",
+    "B4_jfi_quality",
+]
+
 
 # ─── Loading ──────────────────────────────────────────────────────────────
 
@@ -104,6 +116,10 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
         if per_round_path.exists():
             with open(per_round_path) as f:
                 metrics.update(compute_robust_metrics(json.load(f)))
+        participation_path = exp_dir / "participation_log.json"
+        if participation_path.exists():
+            with open(participation_path) as f:
+                metrics.update(compute_jfi_metrics(json.load(f)["final_counts"], metrics))
         rows.append(metrics)
 
     if not rows:
@@ -117,7 +133,7 @@ def load_all_results(results_dir: Path) -> pd.DataFrame:
     # Metrics that are None when a target is never reached (A2) arrive as
     # object dtype; coerce so mean/std/ANOVA treat them as NaN, not crash.
     numeric_cols = (["A1_global_accuracy", "A2_rounds_to_target"] + DEPENDENT_VARS
-                    + ROBUST_VARS + SYSTEM_VARS)
+                    + ROBUST_VARS + SYSTEM_VARS + JFI_VARS)
     for col in numeric_cols:
         if col in df:
             df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -155,6 +171,39 @@ def compute_robust_metrics(round_results: List[Dict], k: int = LAST_K_ROUNDS) ->
     }
 
 
+_quality_cache: Dict[tuple, Dict[str, float]] = {}
+
+
+def compute_jfi_metrics(final_counts: Dict[str, int], metrics: Dict) -> Dict:
+    """
+    Unweighted and quality-weighted Jain's Fairness Index for one run.
+
+    Args:
+        final_counts: participation_log.json "final_counts" (client -> times
+            selected; clients never selected may be absent).
+        metrics: The run's final_metrics.json (dataset, alpha, seed,
+            num_clients locate its partition).
+
+    Returns:
+        Dict with JFI_VARS keys. B4_jfi_quality is NaN when the run's
+        partition_info.json is not available on this machine.
+    """
+    n_clients = int(metrics.get("num_clients") or 10)
+    counts = {str(i): int(final_counts.get(str(i), 0)) for i in range(n_clients)}
+    out = {"B4_jfi": compute_jain_fairness_index(counts), "B4_jfi_quality": float("nan")}
+
+    key = (metrics["dataset"], float(metrics["alpha"]), int(metrics["seed"]), n_clients)
+    if key not in _quality_cache:
+        try:
+            _quality_cache[key] = client_quality_from_partition(load_partition_info(*key))
+        except FileNotFoundError:
+            _quality_cache[key] = {}
+    quality = _quality_cache[key]
+    if len(quality) == n_clients:
+        out["B4_jfi_quality"] = compute_jain_fairness_index(counts, quality)
+    return out
+
+
 # ─── Summary table (mean +- std per dataset x strategy x alpha) ───────────
 
 def build_summary_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -165,7 +214,7 @@ def build_summary_table(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame with one row per (dataset, strategy, alpha) combination.
     """
     agg_cols = (["A1_global_accuracy", "A2_rounds_to_target"] + DEPENDENT_VARS[1:]
-                + ROBUST_VARS + SYSTEM_VARS)
+                + ROBUST_VARS + SYSTEM_VARS + JFI_VARS)
     grouped = df.groupby(["dataset", "strategy", "alpha"])
 
     summary_rows = []
@@ -252,8 +301,11 @@ def run_all_anovas(df: pd.DataFrame) -> Dict[str, Dict]:
     results: Dict[str, Dict] = {}
     for dataset, group in df.groupby("dataset"):
         results[dataset] = {}
-        for dep_var in DEPENDENT_VARS + ROBUST_VARS + ["sim_total_time_seconds"]:
-            if dep_var not in group.columns:
+        for dep_var in DEPENDENT_VARS + ROBUST_VARS + ["sim_total_time_seconds"] + JFI_VARS:
+            # Skip metrics that are absent or incomplete here (e.g. weighted
+            # JFI when some partitions are not on this machine) — ANOVA on a
+            # partial, unbalanced subset would be misleading.
+            if dep_var not in group.columns or group[dep_var].isna().any():
                 continue
             try:
                 results[dataset][dep_var] = run_two_way_anova(group, dep_var)

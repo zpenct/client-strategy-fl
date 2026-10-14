@@ -355,10 +355,44 @@ Oort paling timpang karena tiga mekanisme sekaligus: eksploitasi utilitas statis
 
 ---
 
+## 15b. Figure 16 — Selection Fairness versi Paper: Jain's Fairness Index (`16_jfi_selection_fairness.png`)
+
+**Latar belakang.** B3 mengukur pemerataan **mutlak**. FairFedCS (Shi dkk., 2023) tidak mengejar itu: paper tersebut secara eksplisit mengkritik seleksi yang "sama rata" karena dapat dianggap tidak adil oleh klien berkontribusi besar (*free-rider issue*), dan mengevaluasi FairFedCS dengan **Jain's Fairness Index (JFI) berbobot kualitas** (Pers. 15):
+`JFI = (Σ yᵢ/zᵢ)² / (n · Σ (yᵢ/zᵢ)²)`, dengan `yᵢ` = jumlah partisipasi dan `zᵢ` = kualitas data klien. Mengikuti protokol paper, `zᵢ = n_classᵢ × (1 − p_noisyᵢ)` dinormalisasi ke [0,5; 1]. Karena eksperimen ini **tanpa label noise**, kualitas klien = jumlah kelas yang dimilikinya.
+
+**Yang ditampilkan.** B4 = JFI tanpa bobot (baris atas); B4q = JFI berbobot kualitas, versi paper (baris bawah). Rentang 1/n–1, **semakin tinggi semakin adil**.
+
+**Hasil.**
+
+| JFI berbobot (B4q) | Random | Oort | FairFedCS | Random vs FairFedCS (Mann–Whitney) |
+|---|---|---|---|---|
+| MNIST α = 0,1 / 0,5 / 1,0 | 0,873 / 0,882 / 0,887 | 0,700 / 0,806 / 0,829 | 0,836 / 0,845 / 0,842 | p = 0,032 / 0,056 / 0,016 |
+| CIFAR-10 α = 0,1 / 0,5 / 1,0 | 0,875 / 0,849 / 0,888 | 0,569 / 0,707 / 0,728 | 0,829 / 0,832 / 0,842 | p = 0,032 / 0,421 / 0,095 |
+
+- ANOVA B4q: efek strategi sangat signifikan (F = 41,3 MNIST; 85,9 CIFAR-10; p < 0,001), dengan interaksi strategi × α yang signifikan.
+- Jarak Random–FairFedCS **menyempit** dibanding JFI tanpa bobot (CIFAR-10 α = 0,5: dari 0,908 vs 0,811 menjadi 0,849 vs 0,832, p = 0,42). **Namun Random tetap setara atau sedikit lebih tinggi**; FairFedCS tidak pernah unggul.
+- Oort memiliki JFI terendah dan anjlok pada α = 0,1 (CIFAR-10: 0,569).
+
+**Apakah seleksi mengikuti kualitas klien?** Korelasi Spearman antara jumlah partisipasi dan jumlah kelas klien (rerata per run):
+
+| | Random | Oort | FairFedCS |
+|---|---|---|---|
+| MNIST α = 0,1 / 0,5 / 1,0 | −0,05 / −0,07 / +0,05 | −0,08 / −0,01 / +0,11 | **+0,35 / +0,27 / +0,25** |
+| CIFAR-10 α = 0,1 / 0,5 / 1,0 | −0,03 / −0,13 / +0,11 | +0,12 / +0,05 / +0,02 | **+0,33 / +0,37 / +0,25** |
+
+**Interpretasi dan kaitan teori.**
+- **FairFedCS bekerja sesuai rancangannya.** Hanya FairFedCS yang secara konsisten memilih klien berkualitas lebih tinggi lebih sering (ρ ≈ +0,25 sampai +0,37 di keenam kondisi), sedangkan Random dan Oort ρ ≈ 0. Reputasi berbasis Shapley Value memang menangkap kualitas data, sesuai klaim Shi dkk. (2023).
+- **Mengapa JFI berbobot FairFedCS tetap tidak melampaui Random?** JFI berbobot bernilai 1 jika partisipasi **sebanding persis** dengan kualitas. FairFedCS memang condong ke arah kualitas (ρ positif), tetapi tidak cukup proporsional; ada juga variasi partisipasi yang tidak dijelaskan kualitas (ρ hanya ±0,3). Random, dengan partisipasi hampir rata dan kualitas yang bervariasi dalam rentang sempit [0,5; 1], sudah mendekati proporsional secara kebetulan.
+- **Perbedaan setting dengan paper.** Di paper, klien berkualitas rendah adalah klien dengan **label noise** (kontribusinya benar-benar negatif), sehingga perbedaan kualitas besar dan mudah dideteksi. Di eksperimen ini semua klien jujur; perbedaan "kualitas" hanya berupa jumlah kelas. Skenario tempat FairFedCS dirancang unggul (klien *noisy* di antara klien bersih) **tidak diuji** dalam penelitian ini.
+
+**Catatan objektif.** Proksi kualitas (jumlah kelas) adalah adaptasi protokol paper ke setting tanpa noise, bukan metrik kualitas yang sudah baku. Nilai JFI berbobot bergantung pada pilihan proksi ini.
+
+---
+
 ## 16. Sintesis: Jawaban Rumusan Masalah
 
 **RM1 — Pengaruh strategi terhadap akurasi global dan fairness.**
-Strategi seleksi **tidak berpengaruh signifikan terhadap akurasi global akhir** (p = 0,42 dan 0,82). Strategi **sangat berpengaruh terhadap pemerataan partisipasi** (η²p 0,74–0,91), dengan urutan Random < FairFedCS < Oort. Untuk fairness akurasi (B1/B2), pengaruhnya bergantung pada α (interaksi signifikan di CIFAR-10), tetapi temuan ini sensitif terhadap cara pengukuran. Di bawah heterogenitas perangkat, Oort **unggul signifikan dalam efisiensi waktu** (1,5–3,7×).
+Strategi seleksi **tidak berpengaruh signifikan terhadap akurasi global akhir** (p = 0,42 dan 0,82). Strategi **sangat berpengaruh terhadap pemerataan partisipasi** (η²p 0,74–0,91), dengan urutan Random < FairFedCS < Oort. Urutan ini tetap bertahan bila fairness diukur dengan metrik paper FairFedCS sendiri (JFI berbobot kualitas, Figure 16), meskipun jarak Random–FairFedCS menyempit dan FairFedCS terbukti satu-satunya strategi yang memilih klien berkualitas lebih sering. Untuk fairness akurasi (B1/B2), pengaruhnya bergantung pada α (interaksi signifikan di CIFAR-10), tetapi temuan ini sensitif terhadap cara pengukuran. Di bawah heterogenitas perangkat, Oort **unggul signifikan dalam efisiensi waktu** (1,5–3,7×).
 
 **RM2 — Pengaruh label skew terhadap trade-off dan signifikansinya.**
 α adalah faktor paling dominan dan signifikan pada semua metrik akurasi dan fairness akurasi (η²p hingga 0,94). Skew berat menurunkan akurasi dan meningkatkan ketimpangan akurasi antarklien secara bersamaan. Akurasi dan fairness akurasi bergerak searah, bukan saling bertukar. *Trade-off* yang sebenarnya hanya muncul antara akurasi dan fairness **partisipasi**, dan hanya pada skew berat CIFAR-10.
@@ -383,6 +417,7 @@ Tidak ditemukan threshold α yang konsisten antara MNIST dan CIFAR-10. FairFedCS
 | 6 | Tidak ada *trade-off* A1–B1 | Temuan | Keduanya digerakkan α (*client drift*) |
 | 7 | Durasi round Random/FairFedCS naik pada α = 0,1 | Temuan | *Quantity skew* dari partisi Dirichlet |
 | 8 | Batas partisipasi Oort tidak aktif | **Penyimpangan implementasi** | Menaikkan B3 Oort; wajib diungkap |
+| 9 | FairFedCS tidak unggul bahkan pada JFI berbobot (metrik paper) | Temuan | Seleksi mengikuti kualitas (ρ ≈ +0,3) tetapi tidak proporsional; tidak ada label noise sehingga skenario unggulan paper tidak diuji |
 
 ---
 
@@ -400,7 +435,7 @@ Tidak ditemukan threshold α yang konsisten antara MNIST dan CIFAR-10. FairFedCS
 ## 19. Antisipasi Pertanyaan Dosen Pembimbing
 
 **"Kenapa FairFedCS kalah dari Random dalam fairness?"**
-Karena definisi fairness yang diukur berbeda. B3 mengukur pemerataan absolut, sedangkan FairFedCS menjamin keadilan relatif terhadap reputasi: *queue* tumbuh sebesar `ε·rᵢ`. Random, yang tidak memiliki preferensi, secara teoretis menghasilkan sebaran paling merata, dan nilainya sesuai prediksi Binomial (3,0).
+Karena definisi fairness yang diukur berbeda. B3 mengukur pemerataan absolut, sedangkan FairFedCS menjamin keadilan relatif terhadap reputasi: *queue* tumbuh sebesar `ε·rᵢ`. Random, yang tidak memiliki preferensi, secara teoretis menghasilkan sebaran paling merata, dan nilainya sesuai prediksi Binomial (3,0). Untuk menguji secara adil, kami juga menghitung metrik evaluasi paper FairFedCS sendiri, yaitu JFI berbobot kualitas (Figure 16). FairFedCS terbukti memilih klien berkualitas lebih sering (ρ ≈ +0,3, satu-satunya strategi yang melakukannya), tetapi tetap tidak melampaui Random. Penyebab yang paling mungkin: tidak ada label noise di eksperimen ini, sehingga perbedaan kualitas antarklien kecil.
 
 **"Apakah implementasi Oort dan FairFedCS sudah sesuai paper?"**
 Komponen inti sudah sesuai: *statistical utility*, *temporal uncertainty*, *system utility*, *pacer*, dan eksplorasi untuk Oort; reputasi Beta, Shapley Value, *virtual queue*, dan CSI untuk FairFedCS. Penyimpangannya diungkap terbuka: batas partisipasi Oort tidak aktif, *pacer* W = 5, dan exact Shapley menggantikan GTG-Shapley. Ke-47 unit test, termasuk verifikasi aksioma efisiensi Shapley, lolos.

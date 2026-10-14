@@ -30,6 +30,106 @@ Sumber: `results_system/analysis_n50/*`, `notebooks/figures/results_system_n50/*
 
 **Status terhadap proposal:** RM1–RM3 bisa dijawab (jawabannya sebagian besar "tidak berbeda signifikan; α dominan; FairFedCS tidak konsisten optimal"). Tujuan 1–2 tercapai, Tujuan 3 tercapai dalam bentuk panduan bersyarat. Bagian proposal yang perlu direvisi: lihat jawaban chat 2026-10-09 (Batasan, Tabel 1, metrik, metodologi Oort/FairFedCS, definisi fairness, sitasi).
 
+# Metrik final, validitas, cara analisis & kesimpulan (review 2026-10-13)
+
+Dasar: 90 eksperimen di `results_system/` (N=50, m=5, 100 round, heterogenitas perangkat, seed 42/123/456/789/1024), `results_system/analysis_n50/`, dan `notebooks/figures/results_system_n50/`. Semua klaim di bawah sudah dicek ulang dari data.
+
+## A. Daftar metrik & status validitas
+
+Status: **UTAMA** = dipakai untuk menjawab RM · **PENDUKUNG** = memperkuat/menjelaskan, tidak berdiri sendiri · **TIDAK DIPAKAI** = alasan di kolom terakhir.
+
+### A.1 Performa global
+
+| Kode | Nama | Definisi operasional | Mengukur apa | Arah baik | Status | Catatan validitas |
+|---|---|---|---|---|---|---|
+| **A1** | Global accuracy | Akurasi model global pada **test set terpusat** (10.000 gambar) setelah round terakhir | Kualitas model akhir | ↑ | **UTAMA** | Valid. Test set sama untuk semua strategi. Pada MNIST terjadi efek plafon (98–99%), sehingga daya bedanya rendah |
+| **A_auc** | Rata-rata akurasi sepanjang round | Rerata A1 dari round 1–100 | Kecepatan konvergensi dalam **round** | ↑ | **PENDUKUNG** (pengganti A2) | Valid untuk semua 90 run, tidak ada nilai kosong |
+| A2 | Rounds-to-target | Round pertama akurasi ≥ target (MNIST 85%, CIFAR 70%) | Kecepatan konvergensi | ↓ | **DESKRIPTIF SAJA** | **Tidak valid untuk uji statistik**: 15/45 run CIFAR (semua α=0,1) tidak mencapai target → nilai kosong yang bias. MNIST α≥0,5 jenuh di round 1–2. Tampilkan deskriptif, jangan di-ANOVA |
+| **T** | Time-to-target (simulasi) | Waktu simulasi kumulatif sampai target tercapai; durasi round = klien terpilih terlambat | Efisiensi **waktu** di bawah heterogenitas perangkat | ↓ | **UTAMA** (untuk klaim Oort) | Valid **bersyarat**: bergantung asumsi distribusi kecepatan perangkat (log-normal σ=1). Tidak menghitung biaya komputasi server (Shapley FairFedCS). Kosong pada CIFAR α=0,1 → diuji per sel dengan Mann–Whitney |
+| T_total | Total waktu simulasi | Jumlah durasi 100 round | Biaya waktu per run | ↓ | **PENDUKUNG** | Valid (tanpa nilai kosong), boleh di-ANOVA |
+
+### A.2 Fairness akurasi antarklien
+
+| Kode | Nama | Definisi operasional | Mengukur apa | Arah baik | Status | Catatan validitas |
+|---|---|---|---|---|---|---|
+| **B1** | Std akurasi antarklien | Simpangan baku akurasi model global pada data **latih lokal** ke-50 klien, round terakhir | Pemerataan performa model antarklien | ↓ | **UTAMA** | Valid dengan batasan: (1) dievaluasi di data latih lokal, bukan data uji lokal; (2) snapshot 1 round, sensitif fluktuasi. Nama di kode "accuracy variance" keliru → sebut **simpangan baku** |
+| B1_lastK | B1 rata-rata 5 round terakhir | Rerata B1 dari round 96–100 | Sama, versi stabil | ↓ | **PENDUKUNG** (uji ketahanan) | Dipakai untuk mengecek apakah temuan B1 kokoh |
+| B2 | Gini akurasi antarklien | Koefisien Gini dari akurasi per klien | Ketimpangan akurasi | ↓ | **PENDUKUNG** | **Redundan dengan B1** (korelasi Spearman 0,99 di kedua dataset). Laporkan sebagai konfirmasi, jangan dihitung sebagai bukti terpisah |
+
+### A.3 Fairness seleksi/partisipasi
+
+| Kode | Nama | Definisi operasional | Mengukur apa | Arah baik | Status | Catatan validitas |
+|---|---|---|---|---|---|---|
+| **B3** | Std partisipasi | Simpangan baku jumlah kali tiap klien dipilih selama 100 round | Pemerataan **mutlak** kesempatan berpartisipasi | ↓ | **UTAMA** | Valid. Tervalidasi teori: Random ≈ 3,17 vs prediksi Binomial(100; 0,1) = 3,0 |
+| B4 | JFI tanpa bobot | Jain's Fairness Index dari jumlah partisipasi | Sama dengan B3, skala 0–1 | ↑ | **TIDAK DIPAKAI terpisah** | **Redundan sempurna dengan B3**: karena rerata partisipasi selalu 10, B4 = 1/(1+(B3/10)²) persis (selisih < 10⁻⁷). Cukup sebut sebagai konversi B3 |
+| **B4q** | JFI berbobot kualitas | JFI pada yᵢ/zᵢ, dengan zᵢ = jumlah kelas klien (dinormalisasi ke [0,5;1]) — Pers. 15 paper FairFedCS | Keadilan seleksi **relatif terhadap kualitas klien** (definisi fairness FairFedCS) | ↑ | **UTAMA** (pembanding definisi paper) | Valid sebagai adaptasi: proksi kualitas (jumlah kelas) karena tidak ada label noise. Korelasi dengan B3 −0,92 → mirip tapi tidak identik |
+| ρ_q | Spearman partisipasi vs kualitas | Korelasi Spearman antara jumlah partisipasi dan jumlah kelas klien, per run | Apakah strategi memilih klien berkualitas lebih sering | + (untuk FairFedCS) | **PENDUKUNG** (penjelas mekanisme) | Valid, deskriptif |
+
+### A.4 Analisis gabungan
+
+| Analisis | Untuk apa | Status | Catatan |
+|---|---|---|---|
+| **Two-way ANOVA** (strategi × α, per dataset) + η²p | Signifikansi & besar efek strategi, α, interaksi (RM1, RM2) | **UTAMA** | Normalitas residual dilanggar untuk A1/B1/B2 (Shapiro p<0,03), homogenitas varians dilanggar untuk B3/B4q (Levene p≤0,036) → **wajib** dikonfirmasi uji non-parametrik |
+| **Kruskal–Wallis** per (dataset, α) | Konfirmasi non-parametrik efek strategi | **UTAMA** (pendamping ANOVA) | n=5 per kelompok |
+| **Mann–Whitney** berpasangan | Uji time-to-target & perbandingan 2 strategi | **UTAMA** untuk T | p minimum yang mungkin dengan n=5: 0,0079 |
+| **Pareto frontier** (A1 vs B2/B1/B3) | Strategi dengan keseimbangan terbaik per (dataset, α) (RM3) | **UTAMA, dengan catatan** | Dihitung dari **rerata** tanpa memperhitungkan varians. Pada MNIST selisih akurasi < noise → dominasi tidak bermakna |
+| Korelasi antar metrik | Menguji ada/tidaknya trade-off A1–B1 | **PENDUKUNG** | Spearman A1–B1 = −0,90 (CIFAR), −0,76 (MNIST) |
+
+### A.5 Ringkasan: metrik final yang disarankan untuk skripsi
+
+| Peran | Metrik |
+|---|---|
+| Performa | **A1** (utama), A_auc (konvergensi per round), A2 (deskriptif) |
+| Efisiensi waktu | **T** (time-to-target simulasi), T_total |
+| Fairness akurasi | **B1** (utama), B2 & B1_lastK (konfirmasi/ketahanan) |
+| Fairness partisipasi | **B3** (pemerataan mutlak), **B4q** (definisi paper FairFedCS) |
+| Statistik | Two-way ANOVA + η²p, Kruskal–Wallis, Mann–Whitney, Pareto |
+
+Perubahan dari proposal (perlu direvisi di Batasan Penelitian poin 5): proposal hanya menyebut 5 metrik (A1, A2, B1, B2, B3) + Pareto + ANOVA. Yang **ditambahkan**: T (waktu), A_auc, B4q, uji non-parametrik, η²p. Yang **diturunkan statusnya**: A2 (deskriptif saja), B2 (konfirmasi B1).
+
+## B. Cara analisis per rumusan masalah
+
+| RM | Pertanyaan | Metrik | Uji | Figure/tabel |
+|---|---|---|---|---|
+| **RM1** | Pengaruh strategi terhadap akurasi & fairness | A1, A_auc, B1, B3, B4q, T | Two-way ANOVA (efek strategi) + η²p; Kruskal–Wallis per sel; Mann–Whitney untuk T | Fig 03, 04, 07, 08, 13, 14, 16; `anova_*.csv`, `kruskal_wallis.csv` |
+| **RM2** | Pengaruh label skew terhadap trade-off & signifikansinya | A1, B1/B2, B3 vs α; korelasi A1–B1 | Two-way ANOVA (efek α + interaksi) + η²p; Spearman A1–B1 | Fig 01, 02, 03, 07, 10, 11 |
+| **RM3** | Threshold α di mana FairFedCS optimal, konsistensi MNIST vs CIFAR | A1 vs B2 (utama), A1 vs B1, A1 vs B3 | Pareto frontier per (dataset, α), versi snapshot & robust | Fig 15; `fairness_threshold_summary*.csv` |
+
+## C. Kesimpulan sejauh ini
+
+**RM1 — Pengaruh strategi**
+1. **Akurasi global (A1): tidak dipengaruhi strategi** (MNIST F=0,89; p=0,419; η²p=0,047 · CIFAR F=0,20; p=0,820; η²p=0,011). Kruskal–Wallis tidak signifikan di keenam sel.
+2. **Pemerataan partisipasi (B3): sangat dipengaruhi strategi** (η²p 0,74 MNIST; 0,91 CIFAR; Kruskal–Wallis signifikan di keenam sel). Urutan konsisten **Random (paling merata) < FairFedCS < Oort**.
+3. **Fairness versi paper FairFedCS (B4q): urutan tetap** Random ≥ FairFedCS > Oort (η²p 0,70 MNIST; 0,83 CIFAR), tetapi jarak Random–FairFedCS menyempit dan tidak selalu signifikan (CIFAR α=0,5 p=0,42). FairFedCS **satu-satunya** strategi yang memilih klien berkualitas lebih sering (ρ_q +0,25 s/d +0,37; Random/Oort ≈ 0). Mekanisme reputasinya bekerja, tetapi tidak cukup untuk mengungguli Random. Penyebab paling mungkin: tidak ada label noise.
+4. **Fairness akurasi (B1): efek strategi tidak signifikan**, tetapi interaksi strategi×α signifikan di CIFAR (p=0,0014): Random paling merata pada α≥0,5, paling timpang pada α=0,1. **Temuan ini tidak kokoh**: hilang pada B1_lastK (p=0,125). Laporkan sebagai indikasi.
+5. **Efisiensi waktu (T): Oort unggul signifikan**, 1,5–3,7× lebih cepat mencapai target (Mann–Whitney p 0,008–0,016; kecuali MNIST α=1,0, p≈0,1). Durasi round Oort 45–65% lebih singkat, meski butuh **lebih banyak round**. Ini mereplikasi klaim paper Oort (1,2–14,1×), **bersyarat pada asumsi heterogenitas perangkat**.
+
+**RM2 — Pengaruh label skew**
+1. **α adalah faktor paling dominan** pada akurasi dan fairness akurasi (A1 CIFAR η²p=0,91; B1 CIFAR η²p=0,94; semua p<0,001). Dari α=1,0 ke 0,1 akurasi CIFAR turun ±18–21 poin.
+2. **Tidak ada trade-off akurasi–fairness akurasi**: A1 dan B1 bergerak searah (Spearman −0,90 CIFAR; −0,76 MNIST). Skew berat sekaligus menurunkan akurasi dan meningkatkan ketimpangan, sesuai mekanisme *client drift* (Wang dkk., 2020).
+3. **Trade-off yang nyata hanya antara akurasi dan fairness partisipasi**, dan hanya pada CIFAR α=0,1 (ketiga strategi di Pareto frontier A1 vs B3).
+4. Pengaruh α terhadap B3 kecil dibanding pengaruh strategi, kecuali pada Oort (B3 memburuk tajam di α=0,1).
+
+**RM3 — Threshold FairFedCS**
+1. **Tidak ditemukan threshold α yang konsisten.** Pada Pareto A1 vs B2: FairFedCS optimal di MNIST α=0,1 dan α=1,0, **tidak pernah** di CIFAR (kecuali α=1,0 versi robust).
+2. Dominasi di MNIST berada dalam rentang noise (selisih akurasi ±0,05 poin < std antar-seed), jadi tidak bermakna kuat.
+3. Panduan praktis yang didukung data (Tujuan 3, dalam bentuk bersyarat):
+   - perangkat heterogen & waktu penting → **Oort**;
+   - pemerataan partisipasi / baseline stabil → **Random**;
+   - FairFedCS **tidak terbukti unggul** pada setting tanpa label noise, dan biaya komputasi servernya tertinggi (32 evaluasi Shapley/round).
+
+**Kesimpulan umum (satu kalimat):** di bawah label skew, akurasi dan fairness akurasi ditentukan oleh tingkat skew, bukan strategi seleksi; strategi hanya membedakan pola partisipasi (Random paling merata, Oort paling terkonsentrasi) dan efisiensi waktu (Oort tercepat bila perangkat heterogen); FairFedCS memilih klien berkualitas lebih sering, tetapi keunggulannya tidak terlihat tanpa label noise.
+
+## D. Batasan yang wajib disebutkan bersama kesimpulan
+
+1. Waktu = **waktu simulasi** dengan asumsi distribusi kecepatan perangkat; biaya server tidak dimodelkan.
+2. B1/B2 diukur di **data latih lokal**, snapshot round terakhir.
+3. **Batas partisipasi Oort (10×) tidak aktif** → B3/B4q Oort lebih buruk dari yang mungkin terjadi pada Oort versi paper.
+4. **Tidak ada label noise** → skenario unggulan FairFedCS tidak diuji; kualitas klien diproksikan dengan jumlah kelas.
+5. Partisi Dirichlet juga menghasilkan **quantity skew**; efek "label skew" adalah efek gabungan.
+6. n=5 per sel, asumsi ANOVA dilanggar (dikompensasi uji non-parametrik), tanpa koreksi perbandingan ganda.
+7. Satu konfigurasi skala (N=50, m=5); tidak menguji N/m lain.
+
 # Glosarium simbol statistik (untuk membaca hasil ANOVA & uji lain)
 
 Contoh dari hasil A1 MNIST: **F = 0,89; p = 0,419; η²p = 0,047**.
@@ -177,6 +277,18 @@ NUM_CLIENTS    = 50
 
 
 # Refactor Log:
+
+## 2026-10-12 — Metrik B4: Jain's Fairness Index (metrik evaluasi paper FairFedCS)
+
+Alasan: B3 (std partisipasi) mengukur pemerataan mutlak, sedangkan FairFedCS mengejar keadilan **relatif terhadap kualitas klien** dan dievaluasi paper-nya dengan JFI berbobot (Shi dkk. 2023, Pers. 15).
+
+- `src/metrics/evaluator.py`: `compute_jain_fairness_index()` (opsional berbobot kualitas) + `client_quality_from_partition()` (z_i = jumlah kelas, min-max ke [0,5;1], mengikuti protokol paper tanpa label noise).
+- `experiments/analyze_results.py`: kolom `B4_jfi` dan `B4_jfi_quality` di summary dan ANOVA. Versi berbobot butuh `partition_info.json`; kalau partisi tidak ada, nilainya NaN dan ANOVA-nya dilewati.
+- `notebooks/analysis.ipynb`: kolom `B4`/`B4_q` di cell load dan ANOVA; **section 12 baru** (Figure `16_jfi_selection_fairness.png`, `summary_jfi.csv`, korelasi Spearman partisipasi vs kualitas → `spearman_participation_quality.csv`).
+- `tests/test_system_heterogeneity.py`: +5 test JFI. Total **52/52 pass**. Notebook 0 error pada 90 hasil asli.
+- `docs/penjelasan_figure_n50.md`: bagian 15b (Figure 16), sintesis RM1, anomali #9, dan jawaban pertanyaan dosen diperbarui.
+
+**Hasil:** urutan tetap Random ≥ FairFedCS > Oort pada JFI berbobot; jarak Random–FairFedCS menyempit (beberapa sel tidak signifikan). FairFedCS satu-satunya strategi yang partisipasinya berkorelasi positif dengan kualitas klien (ρ ≈ +0,25 s/d +0,37), Random/Oort ρ ≈ 0.
 
 ## 2026-10-08 — Grid final = `results_system/` (N=50); `results/` tidak dipakai
 
