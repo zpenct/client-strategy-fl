@@ -1,0 +1,19 @@
+Metrik,Effect,F,p-value,η²p,Signifikan (p<0.05),Normalitas resid. (p),Levene (p)
+A1 (Accuracy),Strategy,0.891,0.4192,0.047,Tidak,0.000,0.645
+,Alpha,13.068,0.0001,0.421,Ya,,
+,Strategy × Alpha,0.751,0.5639,0.077,Tidak,,
+B1 (Std akurasi klien),Strategy,0.591,0.5588,0.032,Tidak,0.000,0.655
+,Alpha,23.029,0.0000,0.561,Ya,,
+,Strategy × Alpha,0.835,0.5121,0.085,Tidak,,
+B2 (Gini),Strategy,0.647,0.5297,0.035,Tidak,0.000,0.623
+,Alpha,20.152,0.0000,0.528,Ya,,
+,Strategy × Alpha,0.868,0.4924,0.088,Tidak,,
+B3 (Participation),Strategy,50.867,0.0000,0.739,Ya,0.550,0.000
+,Alpha,4.560,0.0172,0.202,Ya,,
+,Strategy × Alpha,3.678,0.0130,0.290,Ya,,
+B4 (JFI seleksi),Strategy,48.497,0.0000,0.729,Ya,0.466,0.000
+,Alpha,4.934,0.0128,0.215,Ya,,
+,Strategy × Alpha,4.032,0.0084,0.309,Ya,,
+B4q (JFI berbobot kualitas),Strategy,41.253,0.0000,0.696,Ya,0.131,0.000
+,Alpha,11.039,0.0002,0.380,Ya,,
+,Strategy × Alpha,7.021,0.0003,0.438,Ya,,

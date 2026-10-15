@@ -1,0 +1,37 @@
+Dataset,Alpha,Metrik,H,p-value,Signifikan
+MNIST,0.1,A1 (Accuracy),3.792,0.1502,Tidak
+MNIST,0.1,B1 (Std akurasi klien),0.78,0.6771,Tidak
+MNIST,0.1,B2 (Gini),1.52,0.4677,Tidak
+MNIST,0.1,B3 (Participation),12.02,0.0025,Ya
+MNIST,0.1,B4 (JFI seleksi),12.02,0.0025,Ya
+MNIST,0.1,B4q (JFI berbobot kualitas),11.58,0.0031,Ya
+MNIST,0.5,A1 (Accuracy),0.854,0.6524,Tidak
+MNIST,0.5,B1 (Std akurasi klien),0.42,0.8106,Tidak
+MNIST,0.5,B2 (Gini),0.96,0.6188,Tidak
+MNIST,0.5,B3 (Participation),8.96,0.0113,Ya
+MNIST,0.5,B4 (JFI seleksi),8.96,0.0113,Ya
+MNIST,0.5,B4q (JFI berbobot kualitas),9.26,0.0098,Ya
+MNIST,1.0,A1 (Accuracy),1.461,0.4818,Tidak
+MNIST,1.0,B1 (Std akurasi klien),3.5,0.1738,Tidak
+MNIST,1.0,B2 (Gini),2.54,0.2808,Tidak
+MNIST,1.0,B3 (Participation),8.836,0.0121,Ya
+MNIST,1.0,B4 (JFI seleksi),8.836,0.0121,Ya
+MNIST,1.0,B4q (JFI berbobot kualitas),7.34,0.0255,Ya
+CIFAR10,0.1,A1 (Accuracy),2.22,0.3296,Tidak
+CIFAR10,0.1,B1 (Std akurasi klien),6.08,0.0478,Ya
+CIFAR10,0.1,B2 (Gini),4.94,0.0846,Tidak
+CIFAR10,0.1,B3 (Participation),12.5,0.0019,Ya
+CIFAR10,0.1,B4 (JFI seleksi),12.5,0.0019,Ya
+CIFAR10,0.1,B4q (JFI berbobot kualitas),11.58,0.0031,Ya
+CIFAR10,0.5,A1 (Accuracy),0.367,0.8324,Tidak
+CIFAR10,0.5,B1 (Std akurasi klien),2.24,0.3263,Tidak
+CIFAR10,0.5,B2 (Gini),3.42,0.1809,Tidak
+CIFAR10,0.5,B3 (Participation),12.5,0.0019,Ya
+CIFAR10,0.5,B4 (JFI seleksi),12.5,0.0019,Ya
+CIFAR10,0.5,B4q (JFI berbobot kualitas),9.78,0.0075,Ya
+CIFAR10,1.0,A1 (Accuracy),2.66,0.2645,Tidak
+CIFAR10,1.0,B1 (Std akurasi klien),9.5,0.0087,Ya
+CIFAR10,1.0,B2 (Gini),8.82,0.0122,Ya
+CIFAR10,1.0,B3 (Participation),11.52,0.0032,Ya
+CIFAR10,1.0,B4 (JFI seleksi),11.52,0.0032,Ya
+CIFAR10,1.0,B4q (JFI berbobot kualitas),10.82,0.0045,Ya

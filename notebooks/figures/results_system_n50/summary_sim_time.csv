@@ -1,0 +1,19 @@
+Dataset,Alpha,Strategy,Sim. time-to-target (s),Target tercapai,Sim. total time (s),A1 (%)
+MNIST,0.1,Random (FedAvg),556±165,5/5,9165±1342,98.27
+MNIST,0.1,Performance-Based,174±74,5/5,4117±1035,98.47
+MNIST,0.1,Fairness-Aware,647±501,5/5,8238±1352,98.83
+MNIST,0.5,Random (FedAvg),118±78,5/5,7262±1766,99.19
+MNIST,0.5,Performance-Based,44±9,5/5,4019±416,99.14
+MNIST,0.5,Fairness-Aware,111±58,5/5,7045±1455,99.16
+MNIST,1.0,Random (FedAvg),41±13,5/5,6842±880,99.18
+MNIST,1.0,Performance-Based,32±15,5/5,3926±496,99.22
+MNIST,1.0,Fairness-Aware,63±33,5/5,6670±1111,99.24
+CIFAR10,0.1,Random (FedAvg),tidak tercapai,0/5,8902±2745,52.32
+CIFAR10,0.1,Performance-Based,tidak tercapai,0/5,3167±295,55.64
+CIFAR10,0.1,Fairness-Aware,tidak tercapai,0/5,8600±2243,54.72
+CIFAR10,0.5,Random (FedAvg),3983±1430,5/5,6181±1251,70.57
+CIFAR10,0.5,Performance-Based,2507±272,5/5,3635±303,70.05
+CIFAR10,0.5,Fairness-Aware,3713±861,5/5,6358±1365,69.75
+CIFAR10,1.0,Random (FedAvg),2485±415,5/5,5988±1026,73.14
+CIFAR10,1.0,Performance-Based,1699±141,5/5,3707±598,72.29
+CIFAR10,1.0,Fairness-Aware,2818±549,5/5,6237±1455,72.61

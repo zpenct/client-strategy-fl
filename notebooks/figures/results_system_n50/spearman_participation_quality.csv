@@ -1,0 +1,7 @@
+dataset,alpha,random,performance,fairness
+cifar10,0.1,-0.03,0.12,0.33
+cifar10,0.5,-0.13,0.05,0.37
+cifar10,1.0,0.11,0.02,0.25
+mnist,0.1,-0.05,-0.08,0.35
+mnist,0.5,-0.07,-0.01,0.27
+mnist,1.0,0.05,0.11,0.25
